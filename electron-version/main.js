@@ -91,9 +91,26 @@ ipcMain.handle('baixar-capitulos', async (event, { url, inicio, fim }) => {
       capitulo = limparNomeArquivo(`Capítulo ${numeroCapitulo.padStart(5, '0')}`);
       let conteudo = `${tituloCapitulo}\n${tituloNome}\n\n`;
       const contentHtml = $('div.epcontent.entry-content');
-      contentHtml.find('p').each((i, el) => {
-        conteudo += $(el).text() + '\n\n';
-      });
+
+      // 1. Caso padrão: existe <p>
+      if (contentHtml.find('p').length > 0) {
+        contentHtml.find('p').each((i, el) => {
+          conteudo += $(el).text().trim() + '\n\n';
+        });
+      
+      } else {
+        // 2. Caso alternativo: div com <br>
+        const rawHtml = contentHtml.html();
+      
+        if (rawHtml) {
+          const texto = rawHtml
+            .replace(/<br\s*\/?>/gi, '\n')   // converte <br> em quebra de linha
+            .replace(/<\/?[^>]+(>|$)/g, '') // remove outras tags HTML
+            .replace(/\n\s*\n/g, '\n\n')    // normaliza espaçamento
+            .trim();
+          conteudo += texto + '\n\n';
+        }
+      }
       arquivos.push([`${capitulo} - ${tituloNome}.txt`, conteudo]);
     } catch (e) {
       arquivos.push([`ERRO_${capInicial}.txt`, `Erro ao baixar capítulo ${capInicial}`]);
