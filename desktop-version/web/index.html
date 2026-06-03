@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Download de Capítulos</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Download de Capítulos</h1>
+      <form id="formDownload">
+        <div class="field">
+          <label for="url">URL Base:</label>
+          <input
+            type="text"
+            id="url"
+            name="url"
+            value="https://centralnovel.com/shadow-slave-capitulo-"
+            required
+          />
+        </div>
+        <div class="field">
+          <label for="capituloInicial">Capítulo Inicial:</label>
+          <input
+            type="number"
+            id="capituloInicial"
+            name="capituloInicial"
+            required
+          />
+        </div>
+
+        <div class="field">
+          <label for="capituloFinal">Capítulo Final:</label>
+          <input
+            type="number"
+            id="capituloFinal"
+            name="capituloFinal"
+            required
+          />
+        </div>
+
+        <button type="submit">Baixar</button>
+      </form>
+
+      <ul id="progresso"></ul>
+      <div id="linkDownload"></div>
+    </div>
+    <script type="text/javascript" src="/eel.js"></script>
+  </body>
+</html>
