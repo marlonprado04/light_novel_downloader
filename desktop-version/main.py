@@ -26,8 +26,8 @@ session = cloudscraper.create_scraper(
 MAX_CONCURRENT = 10
 MAX_RETRIES = 4
 TIMEOUT = 20
-MIN_DELAY = 1.5
-MAX_DELAY = 3.5
+MIN_DELAY = 2
+MAX_DELAY = 5
 
 file_lock = threading.Lock()
 
@@ -142,10 +142,10 @@ def iniciar_download_desktop(url_base, inicio, fim, formato, nome_arquivo_custom
     global MAX_CONCURRENT, TIMEOUT, MIN_DELAY, MAX_DELAY
 
     # Aplicar configurações do frontend
-    MAX_CONCURRENT = int(config_settings.get('maxConcurrent', 10))
-    TIMEOUT = int(config_settings.get('timeout', 20))
-    MIN_DELAY = float(config_settings.get('minDelay', 1.5))
-    MAX_DELAY = float(config_settings.get('maxDelay', 3.5))
+    MAX_CONCURRENT = int(config_settings.get('maxConcurrent', MAX_CONCURRENT))
+    TIMEOUT = int(config_settings.get('timeout', TIMEOUT))
+    MIN_DELAY = float(config_settings.get('minDelay', MIN_DELAY))
+    MAX_DELAY = float(config_settings.get('maxDelay', MAX_DELAY))
 
     root = Tk()
     root.withdraw()
