@@ -151,8 +151,18 @@ def thread_processamento(url_base, inicio, fim, caminho_zip, formato):
 def obter_config_padrao():
     return DEFAULT_CONFIG
 
+# NOVO: Função exposta para obter caminhos de pastas nativamente via diálogo do SO antes dos downloads
 @eel.expose
-def iniciar_download_desktop(url_base, inicio, fim, formato, nome_arquivo_custom, config_settings):
+def selecionar_pasta():
+    root = Tk()
+    root.withdraw()
+    root.attributes('-topmost', True)
+    pasta_selecionada = filedialog.askdirectory(title="Selecionar Pasta de Destino")
+    root.destroy()
+    return pasta_selecionada if pasta_selecionada else ""
+
+@eel.expose
+def iniciar_download_desktop(url_base, inicio, fim, formato, nome_arquivo_custom, config_settings, caminho_base):
     global MAX_CONCURRENT, TIMEOUT, MIN_DELAY, MAX_DELAY
 
     MAX_CONCURRENT = int(
@@ -175,43 +185,24 @@ def iniciar_download_desktop(url_base, inicio, fim, formato, nome_arquivo_custom
         or DEFAULT_CONFIG['maxDelay']
     )
 
-    root = Tk()
-    root.withdraw()
-    root.attributes('-topmost', True)
+    if not caminho_base or not os.path.exists(caminho_base):
+        return {"ok": False, "msg": "Caminho base de destino inválido."}
 
     if formato == "zip":
-        # Validar e limpar nome customizado
         if nome_arquivo_custom:
             nome_arquivo_custom = re.sub(r'[\\/*?:"<>|]', '', nome_arquivo_custom)
             nome_arquivo = f"{nome_arquivo_custom}.zip"
         else:
             nome_arquivo = f"capitulos_{int(time.time())}.zip"
 
-        caminho_salvar = filedialog.asksaveasfilename(
-            title="Salvar Arquivo ZIP",
-            defaultextension=".zip",
-            filetypes=[("Arquivos ZIP", "*.zip")],
-            initialfile=nome_arquivo
-        )
-
-        if not caminho_salvar:
-            root.destroy()
-            return {"ok": False, "msg": "Operação cancelada."}
-
+        caminho_salvar = os.path.join(caminho_base, nome_arquivo)
+        
+        # Cria arquivo ZIP limpo inicializado
         with zipfile.ZipFile(caminho_salvar, "w", zipfile.ZIP_DEFLATED) as zipf:
             pass
     else:  # formato == "txt"
-        pasta_salvar = filedialog.askdirectory(title="Selecionar Pasta para Salvar Capítulos")
-
-        if not pasta_salvar:
-            root.destroy()
-            return {"ok": False, "msg": "Operação cancelada."}
-
-        timestamp = int(time.time())
-        caminho_salvar = os.path.join(pasta_salvar, f"capitulos_{timestamp}")
+        caminho_salvar = caminho_base
         os.makedirs(caminho_salvar, exist_ok=True)
-
-    root.destroy()
 
     threading.Thread(
         target=thread_processamento,
@@ -255,7 +246,6 @@ def unificar_txt_arquivos(caminho_pasta, nome_saida):
 
     except Exception as e:
         return {"ok": False, "msg": str(e)}
-
 
 
 # Inicia a aplicação

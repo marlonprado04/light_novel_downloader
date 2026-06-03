@@ -18,16 +18,39 @@ let downloadState = {
 
 let progressLogExpanded = localStorage.getItem('progressLogExpanded') !== 'false';
 
-// Toggle filename field visibility
-function toggleFilenameField() {
+// NOVO: Gerencia dinamicamente o estado visual do formulário baseado na ação escolhida
+function atualizarEstadoUI() {
     const formato = document.querySelector('input[name="formato"]:checked').value;
     const filenameField = document.getElementById('filenameField');
+    const camposDownload = document.querySelectorAll('#url, #capituloInicial, #capituloFinal');
+    const botaoSubmeter = document.querySelector('#formDownload button[type="submit"]');
+
+    // Controle do campo de nome customizado do ZIP
     if (formato === 'zip') {
         filenameField.classList.add('visible');
         filenameField.style.display = 'flex';
     } else {
         filenameField.classList.remove('visible');
         filenameField.style.display = 'none';
+    }
+
+    // Controle caso a ação seja unificar pasta local existente
+    if (formato === 'unificar') {
+        camposDownload.forEach(campo => {
+            campo.disabled = true;
+            campo.required = false;
+            campo.closest('.field').style.opacity = '0.4';
+        });
+        botaoSubmeter.textContent = '📄 Unificar Arquivos Existentes';
+        botaoSubmeter.style.backgroundColor = '#2196F3';
+    } else {
+        camposDownload.forEach(campo => {
+            campo.disabled = false;
+            campo.required = true;
+            campo.closest('.field').style.opacity = '1';
+        });
+        botaoSubmeter.textContent = 'Baixar';
+        botaoSubmeter.style.backgroundColor = '#28a745';
     }
 }
 
@@ -70,7 +93,6 @@ function saveDevSettings() {
     localStorage.setItem('minDelay', configSettings.minDelay);
     localStorage.setItem('maxDelay', configSettings.maxDelay);
 
-    // Visual feedback
     showSaveNotice();
 }
 
@@ -101,21 +123,34 @@ function updateProgressTitle() {
 document.getElementById('formDownload').addEventListener('submit', async (e) => {
     e.preventDefault();
 
+    const caminhoBase = document.getElementById('caminhoDestino').value;
+    if (!caminhoBase) {
+        alert('Por favor, selecione uma pasta de destino antes de prosseguir.');
+        return;
+    }
+
+    const formato = document.querySelector('input[name="formato"]:checked').value;
+
+    // Caso de uso 2: Intercepta o envio do formulário se a opção for apenas unificar pasta existente
+    if (formato === 'unificar') {
+        downloadState.caminhoDestino = caminhoBase;
+        downloadState.formato = 'txt'; // Engana a verificação interna da função unificarArquivos()
+        await unificarArquivos();
+        return;
+    }
+
     const url = document.getElementById('url').value;
     const inicio = parseInt(document.getElementById('capituloInicial').value);
     const fim = parseInt(document.getElementById('capituloFinal').value);
-    const formato = document.querySelector('input[name="formato"]:checked').value;
     const nomeArquivo = document.getElementById('nomeArquivo').value.trim();
-
     const linkDownload = document.getElementById('linkDownload');
 
-    linkDownload.innerHTML = 'Aguardando seleção de pasta de destino...';
+    linkDownload.innerHTML = '<strong>Iniciando processamento...</strong>';
 
-    // Salvar configurações antes de iniciar
     saveDevSettings();
 
-    // Chama a função exposta no Python
-    const resposta = await eel.iniciar_download_desktop(url, inicio, fim, formato, nomeArquivo, configSettings)();
+    // Passa o caminhoBase já escolhido pelo usuário para a execução do Python
+    const resposta = await eel.iniciar_download_desktop(url, inicio, fim, formato, nomeArquivo, configSettings, caminhoBase)();
 
     if (resposta.ok) {
         downloadState.caminhoDestino = resposta.caminho;
@@ -152,7 +187,6 @@ document.getElementById('formDownload').addEventListener('submit', async (e) => 
 function mostrarProgressBar() {
     document.getElementById('stats').style.display = 'block';
 
-    // Adicionar listener ao header para toggle
     const header = document.getElementById('progressHeader');
     header.removeEventListener('click', toggleProgressLog);
     header.addEventListener('click', toggleProgressLog);
@@ -216,7 +250,7 @@ function finalizarDownload(sucesso, caminhoFinal) {
     }
 }
 
-eel.expose(registrarErro);
+eel.expose(failedRegistration => registrarErro);
 function registrarErro(numero_cap, mensagem) {
     const num = String(numero_cap).padStart(5, '0');
     const statusCell = document.getElementById(`status-${num}`);
@@ -248,7 +282,7 @@ async function unificarArquivos() {
     const unifierBtn = document.getElementById('unifierBtn');
     const unifierStatus = document.getElementById('unifierStatus');
 
-    unifierBtn.disabled = true;
+    if(unifierBtn) unifierBtn.disabled = true;
     unifierStatus.innerHTML = '⏳ Unificando arquivos...';
 
     try {
@@ -264,7 +298,7 @@ async function unificarArquivos() {
         unifierStatus.className = 'unifier-error';
         unifierStatus.innerHTML = `✗ Erro: ${error}`;
     } finally {
-        unifierBtn.disabled = false;
+        if(unifierBtn) unifierBtn.disabled = false;
     }
 }
 
@@ -284,5 +318,14 @@ document.addEventListener('DOMContentLoaded', async function() {
     document.getElementById('minDelay').value = configSettings.minDelay;
     document.getElementById('maxDelay').value = configSettings.maxDelay;
 
-    toggleFilenameField();
+    // NOVO: Vincula a seleção da pasta inicial via botão de interface
+    document.getElementById('btnSelecionarPasta').addEventListener('click', async () => {
+        const pasta = await eel.selecionar_pasta()();
+        if (pasta) {
+            document.getElementById('caminhoDestino').value = pasta;
+            downloadState.caminhoDestino = pasta;
+        }
+    });
+
+    atualizarEstadoUI();
 });

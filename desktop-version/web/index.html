@@ -10,6 +10,22 @@
       <h1>Download de Capítulos</h1>
       <form id="formDownload">
         <div class="field">
+          <label for="caminhoDestino">📁 Pasta de Destino:</label>
+          <div style="display: flex; gap: 10px; align-items: flex-end;">
+            <input
+              type="text"
+              id="caminhoDestino"
+              name="caminhoDestino"
+              readonly
+              placeholder="Clique em 'Selecionar' para escolher a pasta..."
+              required
+              style="margin-top: 8px;"
+            />
+            <button type="button" id="btnSelecionarPasta" style="margin-top: 8px; width: auto; padding: 12px 20px; white-space: nowrap;">Selecionar</button>
+          </div>
+        </div>
+
+        <div class="field">
           <label for="url">URL Base:</label>
           <input
             type="text"
@@ -40,11 +56,16 @@
         </div>
 
         <div class="form-section">
-          <label class="section-title">📦 Formato de Saída:</label>
+          <label class="section-title">📦 Ação / Formato de Saída:</label>
           <div class="radio-group">
+            <label class="radio-option">
+              <input type="radio" name="formato" value="txt" checked onchange="atualizarEstadoUI()" />
+              <span class="radio-label">TXT (arquivos individuais salvos em pasta)</span>
+            </label>
+
             <div class="radio-item">
               <label class="radio-option">
-                <input type="radio" name="formato" value="zip" onchange="toggleFilenameField()" />
+                <input type="radio" name="formato" value="zip" onchange="atualizarEstadoUI()" />
                 <span class="radio-label">ZIP (arquivos individuais zipados)</span>
               </label>
               <div class="field zip-only-field" id="filenameField">
@@ -56,9 +77,10 @@
                 />
               </div>
             </div>
+
             <label class="radio-option">
-              <input type="radio" name="formato" value="txt" checked onchange="toggleFilenameField()" />
-              <span class="radio-label">TXT (arquivos individuais salvos em pasta)</span>
+              <input type="radio" name="formato" value="unificar" onchange="atualizarEstadoUI()" />
+              <span class="radio-label">✨ Unificar Pasta Existente (Apenas mesclar .txt locais)</span>
             </label>
           </div>
         </div>
@@ -66,7 +88,6 @@
         <button type="submit">Baixar</button>
       </form>
 
-      <!-- Progress Bar e Stats no Topo -->
       <div id="stats" style="display: none;">
         <div class="progress-header" id="progressHeader">
           <div class="progress-title">
@@ -80,13 +101,11 @@
         </div>
         <div class="stats-summary" id="statsSummary"></div>
 
-        <!-- Tabela de Progresso com toggle -->
         <div class="progress-log-container" id="progressLogContainer">
           <ul id="progresso"></ul>
         </div>
       </div>
 
-      <!-- Botão Unificador (aparece após download TXT) -->
       <div id="unifierContainer" style="display: none;">
         <button type="button" id="unifierBtn" class="unifier-btn">📄 Unificar TXT</button>
         <div id="unifierStatus"></div>
@@ -94,7 +113,6 @@
 
       <div id="linkDownload"></div>
 
-      <!-- Developer Panel -->
       <div class="dev-panel">
         <div class="dev-header" onclick="toggleDevPanel()">
           <span>⚙️ Opções Avançadas</span>
