@@ -1,6 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-
 a = Analysis(
     ['main.py'],
     pathex=[],
@@ -14,6 +13,7 @@ a = Analysis(
     noarchive=False,
     optimize=2,
 )
+
 pyz = PYZ(a.pure)
 
 exe = EXE(
@@ -23,6 +23,8 @@ exe = EXE(
     a.datas,
     [],
     name='Light Novel Downloader',
+    icon='icon.ico',
+    version='version_info.txt',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
