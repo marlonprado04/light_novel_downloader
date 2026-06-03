@@ -17,8 +17,10 @@ session = cloudscraper.create_scraper(
     browser={'browser': 'chrome', 'platform': 'windows', 'desktop': True}
 )
 
-MAX_CONCURRENT = 3
+MAX_CONCURRENT = 10
 MAX_RETRIES = 4
+MIN_DELAY = 2
+MAX_DELAY = 5
 file_lock = threading.Lock()
 
 def limpar_nome_arquivo(nome):
@@ -36,7 +38,7 @@ def extrair_conteudo(soup):
 def baixar_pagina(url):
     for tentativa in range(MAX_RETRIES):
         try:
-            time.sleep(random.uniform(1.5, 3.5))
+            time.sleep(random.uniform(MIN_DELAY, MAX_DELAY))
             r = session.get(url, timeout=20)
             if r.status_code == 200:
                 return r
