@@ -17,7 +17,7 @@ session = cloudscraper.create_scraper(
     browser={'browser': 'chrome', 'platform': 'windows', 'desktop': True}
 )
 
-MAX_CONCURRENT = 10
+MAX_CONCURRENT = 3
 MAX_RETRIES = 4
 file_lock = threading.Lock()
 
@@ -42,10 +42,12 @@ def baixar_pagina(url):
                 return r
             if r.status_code in (403, 429, 503):
                 espera = min((2 ** tentativa) * 10, 60)
+                tqdm.write(f"-> Bloqueio {r.status_code} na URL: {url.split('-')[-1]}. Esperando {espera}s...")
                 time.sleep(espera)
                 continue
             return r
         except requests.exceptions.RequestException:
+            tqdm.write("-> Falha de conexão. Tentando novamente...")
             time.sleep(10)
     return None
 
