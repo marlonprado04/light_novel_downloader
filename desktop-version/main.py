@@ -15,29 +15,16 @@ web_dir = os.path.join(os.path.dirname(__file__), 'web')
 eel.init(web_dir)
 
 session = cloudscraper.create_scraper(
-    browser={
-        'browser': 'chrome',
-        'platform': 'windows',
-        'desktop': True
-    }
+    browser={'browser': 'chrome', 'platform': 'windows', 'desktop': True}
 )
 
-# Configurações padrão (fonte única da verdade)
-DEFAULT_CONFIG = {
-    "maxConcurrent": 10,
-    "timeout": 20,
-    "minDelay": 2,
-    "maxDelay": 5,
-}
-
-# Variáveis globais em uso
+DEFAULT_CONFIG = {"maxConcurrent": 10, "timeout": 20, "minDelay": 2, "maxDelay": 5}
 MAX_CONCURRENT = DEFAULT_CONFIG["maxConcurrent"]
 TIMEOUT = DEFAULT_CONFIG["timeout"]
 MIN_DELAY = DEFAULT_CONFIG["minDelay"]
 MAX_DELAY = DEFAULT_CONFIG["maxDelay"]
 
 MAX_RETRIES = 4
-
 file_lock = threading.Lock()
 
 def limpar_nome_arquivo(nome):
@@ -47,10 +34,8 @@ def extrair_conteudo(soup):
     root = soup.find("div", class_="epcontent entry-content")
     if not root:
         return ""
-
     for extra in root.find_all(["script", "style", "ins", "div"], class_=re.compile(r"ads|social|shared", re.I)):
         extra.decompose()
-
     texto = root.get_text(separator="\n")
     linhas = [linha.strip() for linha in texto.split("\n") if linha.strip()]
     return "\n\n".join(linhas)
@@ -60,23 +45,16 @@ def baixar_pagina_desktop(url):
         try:
             time.sleep(random.uniform(MIN_DELAY, MAX_DELAY))
             r = session.get(url, timeout=TIMEOUT)
-
             if r.status_code == 200:
                 return r
-
             if r.status_code in (403, 429, 503):
                 espera = min((2 ** tentativa) * 10, 60)
-                print(f"\n[Aviso App] Bloqueio {r.status_code}. Esfriando por {espera}s...")
                 time.sleep(espera)
                 continue
-
             return r
-
         except requests.exceptions.RequestException:
             espera = min((2 ** tentativa) * 10, 60)
-            print(f"\n[Aviso App] Falha de conexão. Tentando em {espera}s...")
             time.sleep(espera)
-
     return None
 
 def baixar_capitulo_individual(url_base, cap, caminho_zip, total, estado_progresso, formato):
@@ -86,17 +64,16 @@ def baixar_capitulo_individual(url_base, cap, caminho_zip, total, estado_progres
 
     try:
         r = baixar_pagina_desktop(url_completa)
-
         if not r or r.status_code != 200:
-            status = r.status_code if r else "Timeout/Null"
-            raise Exception(f"Falha de acesso (HTTP {status})")
+            status = r.status_code if r else "Timeout"
+            raise Exception(f"Falha HTTP {status}")
 
         soup = BeautifulSoup(r.text, "html.parser")
         titulo_el = soup.find("h1", class_="entry-title")
         serie_el = soup.find("div", class_="cat-series")
 
         if not titulo_el:
-            raise Exception("Título não encontrado")
+            raise Exception("Conteúdo não renderizado")
 
         titulo_capitulo = titulo_el.get_text().strip()
         titulo_nome = limpar_nome_arquivo(serie_el.get_text()) if serie_el else "Shadow Slave"
@@ -114,7 +91,7 @@ def baixar_capitulo_individual(url_base, cap, caminho_zip, total, estado_progres
     except Exception as e:
         erro_msg = str(e)
         nome_arquivo = f"ERRO_{cap_str}.txt"
-        conteudo = f"Erro ao baixar o capítulo {cap_str}: {erro_msg}"
+        conteudo = f"Erro no capítulo {cap_str}: {erro_msg}"
         titulo_nome = "ERRO"
         eel.registrarErro(numero_cap, erro_msg)()
 
@@ -126,83 +103,64 @@ def baixar_capitulo_individual(url_base, cap, caminho_zip, total, estado_progres
             arquivo_path = os.path.join(caminho_zip, nome_arquivo)
             with open(arquivo_path, "w", encoding="utf-8") as f:
                 f.write(conteudo)
-
         estado_progresso['atual'] += 1
 
     eel.receberProgresso(nome_arquivo, titulo_nome, estado_progresso['atual'], total, numero_cap)()
 
-def thread_processamento(url_base, inicio, fim, caminho_zip, formato):
+def thread_processamento(url_base, inicio, fim, caminho_final, formato):
     capitulos = [i for i in range(inicio, fim + 1)]
     total = len(capitulos)
     estado_progresso = {'atual': 0, 'total': total}
 
     with ThreadPoolExecutor(max_workers=MAX_CONCURRENT) as executor:
         futures = [
-            executor.submit(baixar_capitulo_individual, url_base, cap, caminho_zip, total, estado_progresso, formato)
+            executor.submit(baixar_capitulo_individual, url_base, cap, caminho_final, total, estado_progresso, formato)
             for cap in capitulos
         ]
         for future in as_completed(futures):
             pass
 
-    eel.finalizarDownload(True, caminho_zip)()
-
+    eel.finalizarDownload(True, caminho_final)()
 
 @eel.expose
 def obter_config_padrao():
     return DEFAULT_CONFIG
 
-# NOVO: Função exposta para obter caminhos de pastas nativamente via diálogo do SO antes dos downloads
 @eel.expose
 def selecionar_pasta():
     root = Tk()
     root.withdraw()
     root.attributes('-topmost', True)
-    pasta_selecionada = filedialog.askdirectory(title="Selecionar Pasta de Destino")
+    pasta = filedialog.askdirectory(title="Selecionar Pasta de Destino")
     root.destroy()
-    return pasta_selecionada if pasta_selecionada else ""
+    return pasta
 
 @eel.expose
-def iniciar_download_desktop(url_base, inicio, fim, formato, nome_arquivo_custom, config_settings, caminho_base):
+def iniciar_download_desktop(url_base, inicio, fim, formato, nome_arquivo_custom, config_settings, pasta_salvar):
     global MAX_CONCURRENT, TIMEOUT, MIN_DELAY, MAX_DELAY
 
-    MAX_CONCURRENT = int(
-        config_settings.get('maxConcurrent')
-        or DEFAULT_CONFIG['maxConcurrent']
-    )
+    MAX_CONCURRENT = int(config_settings.get('maxConcurrent') or DEFAULT_CONFIG['maxConcurrent'])
+    TIMEOUT = int(config_settings.get('timeout') or DEFAULT_CONFIG['timeout'])
+    MIN_DELAY = float(config_settings.get('minDelay') or DEFAULT_CONFIG['minDelay'])
+    MAX_DELAY = float(config_settings.get('maxDelay') or DEFAULT_CONFIG['maxDelay'])
 
-    TIMEOUT = int(
-        config_settings.get('timeout')
-        or DEFAULT_CONFIG['timeout']
-    )
-
-    MIN_DELAY = float(
-        config_settings.get('minDelay')
-        or DEFAULT_CONFIG['minDelay']
-    )
-
-    MAX_DELAY = float(
-        config_settings.get('maxDelay')
-        or DEFAULT_CONFIG['maxDelay']
-    )
-
-    if not caminho_base or not os.path.exists(caminho_base):
-        return {"ok": False, "msg": "Caminho base de destino inválido."}
+    if not pasta_salvar or not os.path.isdir(pasta_salvar):
+        return {"ok": False, "msg": "Selecione uma pasta válida na interface."}
 
     if formato == "zip":
-        if nome_arquivo_custom:
-            nome_arquivo_custom = re.sub(r'[\\/*?:"<>|]', '', nome_arquivo_custom)
-            nome_arquivo = f"{nome_arquivo_custom}.zip"
-        else:
-            nome_arquivo = f"capitulos_{int(time.time())}.zip"
-
-        caminho_salvar = os.path.join(caminho_base, nome_arquivo)
+        # FLUXO 1: Criação direta do ZIP na pasta de destino sem abrir caixas de diálogo extras
+        if not nome_arquivo_custom:
+            nome_arquivo_custom = f"capitulos_{int(time.time())}"
         
-        # Cria arquivo ZIP limpo inicializado
+        nome_limpo = re.sub(r'[\\/*?:"<>|]', '', nome_arquivo_custom)
+        caminho_salvar = os.path.join(pasta_salvar, f"{nome_limpo}.zip")
+        
+        # Cria o esqueleto do arquivo ZIP limpo
         with zipfile.ZipFile(caminho_salvar, "w", zipfile.ZIP_DEFLATED) as zipf:
             pass
-    else:  # formato == "txt"
-        caminho_salvar = caminho_base
-        os.makedirs(caminho_salvar, exist_ok=True)
+    else:
+        # FLUXO 2: TXT direto para a pasta selecionada
+        caminho_salvar = pasta_salvar
 
     threading.Thread(
         target=thread_processamento,
@@ -216,37 +174,33 @@ def iniciar_download_desktop(url_base, inicio, fim, formato, nome_arquivo_custom
 def unificar_txt_arquivos(caminho_pasta, nome_saida):
     try:
         if not os.path.isdir(caminho_pasta):
-            return {"ok": False, "msg": "Pasta inválida"}
+            return {"ok": False, "msg": "Diretório inválido"}
 
-        # Listar e ordenar arquivos TXT
+        nome_limpo = re.sub(r'[\\/*?:"<>|]', '', nome_saida)
+        nome_arquivo = f"{nome_limpo}.txt"
+        arquivo_saida = os.path.join(caminho_pasta, nome_arquivo)
+
         todos_arquivos = os.listdir(caminho_pasta)
-        arquivos_txt = [arquivo for arquivo in todos_arquivos if arquivo.endswith(".txt")]
+        # Filtra para ler apenas TXTs e ignorar o próprio arquivo final caso ele já exista
+        arquivos_txt = [arq for arq in todos_arquivos if arq.endswith(".txt") and arq != nome_arquivo]
         arquivos_txt.sort()
 
         if not arquivos_txt:
-            return {"ok": False, "msg": "Nenhum arquivo .txt encontrado na pasta"}
-
-        # Criar arquivo unificado
-        nome_arquivo = f"{nome_saida}.txt"
-        arquivo_saida = os.path.join(caminho_pasta, nome_arquivo)
+            return {"ok": False, "msg": "Nenhum arquivo .txt encontrado para mesclar"}
 
         with open(arquivo_saida, "w", encoding="utf-8") as saida:
-            for idx, arquivo_txt in enumerate(arquivos_txt):
-                caminho_arquivo = os.path.join(caminho_pasta, arquivo_txt)
+            for idx, arq_txt in enumerate(arquivos_txt):
+                caminho_arquivo = os.path.join(caminho_pasta, arq_txt)
                 try:
-                    with open(caminho_arquivo, "r", encoding="utf-8", errors="ignore") as arquivo:
-                        conteudo = arquivo.read()
-                        saida.write(conteudo)
+                    with open(caminho_arquivo, "r", encoding="utf-8", errors="ignore") as entrada:
+                        saida.write(entrada.read())
                     if idx < len(arquivos_txt) - 1:
                         saida.write("\n" + "="*80 + "\n\n")
                 except Exception as e:
-                    print(f"Erro ao ler {arquivo_txt}: {e}")
+                    print(f"Falha ao processar {arq_txt}: {e}")
 
         return {"ok": True, "caminho": arquivo_saida}
-
     except Exception as e:
         return {"ok": False, "msg": str(e)}
 
-
-# Inicia a aplicação
-eel.start('index.html', size=(1000, 800))
+eel.start('index.html', size=(1000, 850))
