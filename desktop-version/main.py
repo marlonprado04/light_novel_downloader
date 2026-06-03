@@ -176,12 +176,18 @@ def unificar_txt_arquivos(caminho_pasta, nome_saida):
         if not os.path.isdir(caminho_pasta):
             return {"ok": False, "msg": "Diretório inválido"}
 
-        nome_limpo = re.sub(r'[\\/*?:"<>|]', '', nome_saida)
+        # Remove caracteres proibidos pelo SO, mas PRESERVA os espaços normais do texto
+        nome_limpo = re.sub(r'[\\/*?:"<>|]', '', nome_saida).strip()
+        
+        # AJUSTE DE SEGURANÇA: Se o nome ficar vazio (ou continha apenas espaços), gera um nome padrão seguro
+        if not nome_limpo:
+            nome_limpo = f"unificado_{int(time.time())}"
+
         nome_arquivo = f"{nome_limpo}.txt"
         arquivo_saida = os.path.join(caminho_pasta, nome_arquivo)
 
         todos_arquivos = os.listdir(caminho_pasta)
-        # Filtra para ler apenas TXTs e ignorar o próprio arquivo final caso ele já exista
+        # Filtra para ler apenas TXTs e ignorar o próprio arquivo final caso ele já exista na pasta
         arquivos_txt = [arq for arq in todos_arquivos if arq.endswith(".txt") and arq != nome_arquivo]
         arquivos_txt.sort()
 
@@ -202,5 +208,4 @@ def unificar_txt_arquivos(caminho_pasta, nome_saida):
         return {"ok": True, "caminho": arquivo_saida}
     except Exception as e:
         return {"ok": False, "msg": str(e)}
-
 eel.start('index.html', size=(1000, 850))

@@ -27,6 +27,9 @@ function alterarModo(modoSelecionado) {
     const statusPainel = document.getElementById('unifierStatus');
     const rootStyles = document.documentElement;
 
+    // NOVO: Captura os campos de download para controlar a validação HTML5
+    const camposDownload = document.querySelectorAll('#url, #capituloInicial, #capituloFinal');
+
     statusPainel.innerHTML = ''; // Limpa mensagens residuais
     document.getElementById('stats').style.display = 'none'; // Esconde painel de progresso antigo
 
@@ -35,6 +38,12 @@ function alterarModo(modoSelecionado) {
         sectionDownloads.style.display = 'flex';
         sectionNomeArquivo.style.display = 'none';
         nomeArquivoInput.required = false;
+
+        // Reativa os campos de download
+        camposDownload.forEach(campo => {
+            campo.required = true;
+            campo.disabled = false;
+        });
 
         btnPrincipal.textContent = 'Baixar Capítulos Individuais';
         rootStyles.style.setProperty('--input-focus', 'var(--color-txt)');
@@ -47,6 +56,12 @@ function alterarModo(modoSelecionado) {
         nomeArquivoInput.placeholder = 'Ex: shadow_slave_volume_1';
         nomeArquivoInput.required = true;
 
+        // Reativa os campos de download
+        camposDownload.forEach(campo => {
+            campo.required = true;
+            campo.disabled = false;
+        });
+
         btnPrincipal.textContent = 'Baixar e Compactar em ZIP';
         rootStyles.style.setProperty('--input-focus', 'var(--color-zip)');
         btnPrincipal.style.backgroundColor = 'var(--color-zip)';
@@ -57,6 +72,12 @@ function alterarModo(modoSelecionado) {
         labelNomeArquivo.textContent = 'Nome do Arquivo Unificado (.txt)';
         nomeArquivoInput.placeholder = 'Ex: volume_1_completo';
         nomeArquivoInput.required = true;
+
+        // SOLUÇÃO: Desobriga e desabilita os campos ocultos para não travar o Submit do formulário
+        camposDownload.forEach(campo => {
+            campo.required = false;
+            campo.disabled = true;
+        });
 
         btnPrincipal.textContent = 'Unificar Arquivos da Pasta';
         rootStyles.style.setProperty('--input-focus', 'var(--color-unify)');
@@ -79,13 +100,17 @@ document.getElementById('formDownload').addEventListener('submit', async (e) => 
     const statusPainel = document.getElementById('unifierStatus');
     const linkDownload = document.getElementById('linkDownload');
 
-    // FLUXO ISOLADO 3: UNIFICAR PASTA LOCAL (Corrigido aqui)
+    // 1. Limpeza imediata de status de texto anteriores
+    statusPainel.innerHTML = '';
+    statusPainel.className = 'status-panel';
+    linkDownload.innerHTML = '';
+
+    // FLUXO ISOLADO 3: UNIFICAR PASTA LOCAL
     if (formato === 'unificar') {
         statusPainel.className = 'status-panel';
         statusPainel.innerHTML = '<div class="text-center">⏳ Processando mesclagem dos arquivos locais...</div>';
         
         try {
-            // CORREÇÃO: Removido o () extra que causava o TypeError
             const resposta = await eel.unificar_txt_arquivos(pastaBase, nomeArquivo)(); 
             if (resposta.ok) {
                 statusPainel.className = 'status-panel unifier-success';
@@ -106,23 +131,39 @@ document.getElementById('formDownload').addEventListener('submit', async (e) => 
     const inicio = parseInt(document.getElementById('capituloInicial').value);
     const fim = parseInt(document.getElementById('capituloFinal').value);
 
+    // ================================================================
+    // 🚀 SOLUÇÃO: CONFIGURA E EXIBE O PROGRESSO IMEDIATAMENTE (ANTES DO PYTHON)
+    // ================================================================
+    // Configura o estado inicial do novo lote
+    downloadState.caminhoDestino = pastaBase;
+    downloadState.formato = formato;
+    downloadState.total = fim - inicio + 1;
+    downloadState.progresso.total = fim - inicio + 1;
+    downloadState.progresso.atual = 0;
+
+    // Reseta visualmente a barra para 0% instantaneamente no clique
+    document.getElementById('progressBar').style.width = '0%';
+    document.getElementById('progressPercentage').textContent = '0%';
+    document.getElementById('statsSummary').innerHTML = `Preparando lote: <strong>0 de ${downloadState.total}</strong> arquivos (0%)`;
+    document.getElementById('progressTitle').textContent = `Iniciando Download (${inicio} ao ${fim})...`;
+
+    // Constrói a nova tabela limpa de capítulos e força a exibição do painel na tela
+    construirGradeProgresso(inicio, fim);
+    exibirPainelProgresso();
+    // ================================================================
+
     linkDownload.innerHTML = '<strong>Aguardando inicialização do Python...</strong>';
     saveDevSettings();
 
+    // Dispara a rotina externa. Mesmo que o Python demore a inicializar, a UI já está montada e limpa!
     const resposta = await eel.iniciar_download_desktop(url, inicio, fim, formato, nomeArquivo, configSettings, pastaBase)();
 
     if (resposta.ok) {
-        downloadState.caminhoDestino = resposta.caminho;
-        downloadState.formato = formato;
-        downloadState.total = fim - inicio + 1;
-        downloadState.progresso.total = fim - inicio + 1;
-        downloadState.progresso.atual = 0;
-
         linkDownload.innerHTML = '<strong>Download ativo em segundo plano...</strong>';
-        construirGradeProgresso(inicio, fim);
-        exibirPainelProgresso();
     } else {
         linkDownload.innerHTML = `<span style="color:#991b1b; font-weight:600;">✗ Erro: ${resposta.msg || 'Falha na rotina externa.'}</span>`;
+        // Se falhar logo de início, oculta o painel para não confundir
+        document.getElementById('stats').style.display = 'none';
     }
 });
 
