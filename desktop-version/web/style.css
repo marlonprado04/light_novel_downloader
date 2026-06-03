@@ -1,0 +1,137 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    margin: 0;
+    padding: 0;
+}
+
+.container {
+    max-width: 600px;
+    margin: 50px auto;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    box-sizing: border-box;
+}
+
+h1 {
+    text-align: center;
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+}
+
+label {
+    margin-top: 10px;
+}
+
+input {
+    padding: 10px;
+    margin-top: 8px;
+    margin-bottom: 12px;
+    width: 100%;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-sizing: border-box;
+}
+
+button {
+    padding: 12px;
+    margin-top: 20px;
+    background-color: #28a745;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+button:hover {
+    background-color: #218838;
+}
+
+button:active {
+    background-color: #1e7e34;
+}
+
+.progress-container {
+    width: 100%;
+    background-color: #f3f3f3;
+    height: 30px;
+    margin: 20px 0;
+    border-radius: 5px;
+    box-sizing: border-box;
+}
+
+.progress-bar {
+    height: 100%;
+    width: 0;
+    background-color: #4caf50;
+    text-align: center;
+    color: white;
+    line-height: 30px;
+    border-radius: 5px;
+    transition: width 0.3s ease;
+}
+
+ul#output {
+    list-style-type: none;
+    padding: 0;
+    margin-top: 20px;
+}
+
+ul#output li {
+    margin: 5px 0;
+    padding: 8px;
+    background-color: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+}
+
+/* Container principal */
+.zip-options {
+    display: flex;
+    align-items: center;  /* Alinha verticalmente todos os itens no centro */
+    gap: 12px;            /* Espaçamento entre os itens */
+    margin-top: 20px;      /* Margem superior */
+    padding: 10px 15px;    /* Padding no container para espaçamento interno */
+    background-color: #f7f7f7; /* Cor de fundo suave */
+    border-radius: 8px;    /* Bordas arredondadas */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Sombras sutis para dar profundidade */
+}
+
+/* Estilo da checkbox */
+input[type="checkbox"] {
+    width: 20px;         /* Define o tamanho da checkbox */
+    height: 20px;        /* Define o tamanho da checkbox */
+    accent-color: #4CAF50; /* Cor personalizada para a checkbox */
+    cursor: pointer;    /* Muda o cursor para indicar que é clicável */
+    transition: transform 0.2s ease; /* Transição suave ao interagir */
+}
+
+input[type="checkbox"]:checked {
+    transform: scale(1.1); /* Aumenta o tamanho da checkbox quando marcada */
+}
+
+/* Estilo do label */
+#labelDownloadZip {
+    font-size: 14px;      /* Tamanho de fonte moderado */
+    color: #333;          /* Cor de texto escura */
+    font-weight: 600;     /* Negrito para destaque */
+    cursor: pointer;     /* Cursor de mão ao passar sobre o texto */
+    transition: color 0.2s ease; /* Transição suave para mudança de cor */
+}
+
+#labelDownloadZip:hover {
+    color: #28a745;       /* Altera a cor quando o usuário passa o mouse sobre o label */
+}

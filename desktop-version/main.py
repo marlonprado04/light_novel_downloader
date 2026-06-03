@@ -11,8 +11,9 @@ import cloudscraper
 from bs4 import BeautifulSoup
 import requests # Garantir a captura de erros de rede
 
-# Inicializa o Eel apontando para a pasta 'web'
-eel.init('web')
+# Inicializa o Eel apontando para a pasta 'web' com caminho absoluto
+web_dir = os.path.join(os.path.dirname(__file__), 'web')
+eel.init(web_dir)
 
 # Configuração do Scraper idêntica ao CLI de sucesso
 session = cloudscraper.create_scraper(
@@ -24,7 +25,7 @@ session = cloudscraper.create_scraper(
 )
 
 MAX_CONCURRENT = 10
-MAX_RETRIES = 4
+MAX_RETRIES = 4 
 
 # Lock vital para evitar que o Windows trave ao escrever no ZIP em paralelo
 file_lock = threading.Lock()
