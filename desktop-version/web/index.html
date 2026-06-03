@@ -45,20 +45,20 @@
             <div class="radio-item">
               <label class="radio-option">
                 <input type="radio" name="formato" value="zip" onchange="toggleFilenameField()" />
-                <span class="radio-label">ZIP (arquivo único)</span>
+                <span class="radio-label">ZIP (arquivos individuais zipados)</span>
               </label>
               <div class="field zip-only-field" id="filenameField">
                 <input
                   type="text"
                   id="nomeArquivo"
                   name="nomeArquivo"
-                  placeholder="Nome do arquivo (opcional)"
+                  placeholder="Nome do arquivo ZIP (opcional)"
                 />
               </div>
             </div>
             <label class="radio-option">
               <input type="radio" name="formato" value="txt" checked onchange="toggleFilenameField()" />
-              <span class="radio-label">TXT (pasta com arquivos)</span>
+              <span class="radio-label">TXT (arquivos individuais salvos em pasta)</span>
             </label>
           </div>
         </div>
@@ -109,7 +109,7 @@
                 <span class="info-icon" data-tooltip="Mais threads = mais downloads de caps simultaneo por sessão, mas risco de bloqueio. Valores seguros: 5-10. Perigoso: >10">ℹ️</span>
                 <span class="hint">(1-50)</span>
               </label>
-              <input type="number" id="maxConcurrent" min="1" max="50" value="10" onchange="saveDevSettings()" />
+                <input type="number" id="maxConcurrent" min="1" max="50" onchange="saveDevSettings()" />
             </div>
             <div class="field">
               <label for="timeout">
@@ -117,7 +117,7 @@
                 <span class="info-icon" data-tooltip="Tempo máximo para aguardar resposta de cada requisição. Valor seguro: 10 segundos.">ℹ️</span>
                 <span class="hint">(segundos)</span>
               </label>
-              <input type="number" id="timeout" min="5" max="120" value="10" onchange="saveDevSettings()" />
+              <input type="number" id="timeout" min="5" max="120" onchange="saveDevSettings()" />
             </div>
             <div class="field">
               <label for="minDelay">
@@ -125,7 +125,7 @@
                 <span class="info-icon" data-tooltip="Limite mínimo para variação aleatória do delay de download. Usado para parecer mais natural. Valore seguro: 2.0 segundos.">ℹ️</span>
                 <span class="hint">(segundos)</span>
               </label>
-              <input type="number" id="minDelay" min="0" max="10" step="0.5" value="2.0" onchange="saveDevSettings()" />
+              <input type="number" id="minDelay" min="0" max="10" step="0.5" onchange="saveDevSettings()" />
             </div>
             <div class="field">
               <label for="maxDelay">
@@ -133,7 +133,7 @@
                 <span class="info-icon" data-tooltip="Limite superior para variação aleatória do delay. Usado para parecer mais natural. Valor seguro: 5.0 segundos.">ℹ️</span>
                 <span class="hint">(segundos)</span>
               </label>
-              <input type="number" id="maxDelay" min="0" max="10" step="0.5" value="5.0" onchange="saveDevSettings()" />
+              <input type="number" id="maxDelay" min="0" max="10" step="0.5" onchange="saveDevSettings()" />
             </div>
           </div>
           <div class="settings-notice">

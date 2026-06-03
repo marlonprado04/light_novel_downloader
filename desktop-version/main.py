@@ -22,12 +22,21 @@ session = cloudscraper.create_scraper(
     }
 )
 
-# Variáveis globais configuráveis
-MAX_CONCURRENT = 10
+# Configurações padrão (fonte única da verdade)
+DEFAULT_CONFIG = {
+    "maxConcurrent": 10,
+    "timeout": 20,
+    "minDelay": 2,
+    "maxDelay": 5,
+}
+
+# Variáveis globais em uso
+MAX_CONCURRENT = DEFAULT_CONFIG["maxConcurrent"]
+TIMEOUT = DEFAULT_CONFIG["timeout"]
+MIN_DELAY = DEFAULT_CONFIG["minDelay"]
+MAX_DELAY = DEFAULT_CONFIG["maxDelay"]
+
 MAX_RETRIES = 4
-TIMEOUT = 20
-MIN_DELAY = 2
-MAX_DELAY = 5
 
 file_lock = threading.Lock()
 
@@ -137,15 +146,34 @@ def thread_processamento(url_base, inicio, fim, caminho_zip, formato):
 
     eel.finalizarDownload(True, caminho_zip)()
 
+
+@eel.expose
+def obter_config_padrao():
+    return DEFAULT_CONFIG
+
 @eel.expose
 def iniciar_download_desktop(url_base, inicio, fim, formato, nome_arquivo_custom, config_settings):
     global MAX_CONCURRENT, TIMEOUT, MIN_DELAY, MAX_DELAY
 
-    # Aplicar configurações do frontend
-    MAX_CONCURRENT = int(config_settings.get('maxConcurrent', MAX_CONCURRENT))
-    TIMEOUT = int(config_settings.get('timeout', TIMEOUT))
-    MIN_DELAY = float(config_settings.get('minDelay', MIN_DELAY))
-    MAX_DELAY = float(config_settings.get('maxDelay', MAX_DELAY))
+    MAX_CONCURRENT = int(
+        config_settings.get('maxConcurrent')
+        or DEFAULT_CONFIG['maxConcurrent']
+    )
+
+    TIMEOUT = int(
+        config_settings.get('timeout')
+        or DEFAULT_CONFIG['timeout']
+    )
+
+    MIN_DELAY = float(
+        config_settings.get('minDelay')
+        or DEFAULT_CONFIG['minDelay']
+    )
+
+    MAX_DELAY = float(
+        config_settings.get('maxDelay')
+        or DEFAULT_CONFIG['maxDelay']
+    )
 
     root = Tk()
     root.withdraw()
@@ -227,6 +255,8 @@ def unificar_txt_arquivos(caminho_pasta, nome_saida):
 
     except Exception as e:
         return {"ok": False, "msg": str(e)}
+
+
 
 # Inicia a aplicação
 eel.start('index.html', size=(1000, 800))

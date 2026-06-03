@@ -1,9 +1,9 @@
 // Variáveis globais de configuração
 let configSettings = {
-    maxConcurrent: localStorage.getItem('maxConcurrent') || 10,
-    timeout: localStorage.getItem('timeout') || 20,
-    minDelay: localStorage.getItem('minDelay') || 1.5,
-    maxDelay: localStorage.getItem('maxDelay') || 3.5
+    maxConcurrent: null,
+    timeout: null,
+    minDelay: null,
+    maxDelay: null
 };
 
 let downloadState = {
@@ -269,10 +269,20 @@ async function unificarArquivos() {
 }
 
 // Carregar configurações ao iniciar
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
+    const defaults = await eel.obter_config_padrao()();
+
+    configSettings = {
+        maxConcurrent: localStorage.getItem('maxConcurrent') ?? defaults.maxConcurrent,
+        timeout: localStorage.getItem('timeout') ?? defaults.timeout,
+        minDelay: localStorage.getItem('minDelay') ?? defaults.minDelay,
+        maxDelay: localStorage.getItem('maxDelay') ?? defaults.maxDelay
+    };
+
     document.getElementById('maxConcurrent').value = configSettings.maxConcurrent;
     document.getElementById('timeout').value = configSettings.timeout;
     document.getElementById('minDelay').value = configSettings.minDelay;
     document.getElementById('maxDelay').value = configSettings.maxDelay;
+
     toggleFilenameField();
 });
