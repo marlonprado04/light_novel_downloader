@@ -20,11 +20,9 @@ LIGHT_NOVEL_DOWNLOADER/
 │   │   ├── script.js             # Lógica JavaScript
 │   │   └── style.css             # Estilização
 │   └── Light Novel Downloader.spec # Configuração PyInstaller (para compilação)
-├── local-version/                # Scripts CLI via terminal
-├── electron-version/             # Versão Electron [Legado]
-├── web-version/                  # Solução Flask [Legado]
-├── README_PROJETO.md             # Documentação detalhada complementar
-└── README.md                      # Este arquivo
+├── cli-version/                  # Scripts CLI via terminal
+├── legacy/                       # Versão Electron e web [Legado]
+└── README.md                     # Este arquivo
 
 ## 🛠️ Instalação das Dependências (Módulos Python)
 Para rodar os scripts da local-version (CLI) ou da nova desktop-version (Eel), instale as bibliotecas necessárias abrindo o terminal (PowerShell ou CMD) na raiz do projeto e executando:
@@ -54,8 +52,8 @@ Uma aplicação desktop nativa e leve que une o design moderno de uma interface 
 
 Ideal para downloads diretos, minimalistas e rápidos com barra de progresso em tempo real diretamente no seu terminal.
 
-1. Acesse a pasta dos scripts locais: cd local-version
-2. Execute o comando: python .\scrapping.py
+1. Acesse a pasta dos scripts locais: cd cli-version
+2. Execute o comando: python .\main.py
 3. Defina o intervalo de capítulos e escolha o modo de salvamento: 1 para pasta com arquivos TXT separados ou 2 para compilado direto em arquivo ZIP.
 
 ## 💡 Dicas de Uso e Comportamento
