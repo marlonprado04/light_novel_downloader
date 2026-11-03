@@ -57,8 +57,12 @@ def validar_url_fonte(url: str) -> None:
         return
 
     if host in {"centralnovel.com", "www.centralnovel.com"}:
-        if not partes.path.endswith("-"):
-            raise ValueError("Para o Central Novel, informe a URL base terminada em hífen.")
+        if not re.search(
+            r".+-(?:\d+)?$", partes.path.rstrip("/")
+        ):
+            raise ValueError(
+                "Informe a URL do Central Novel terminada em hífen ou o link de um capítulo."
+            )
         return
 
     raise ValueError("Fonte não suportada. Use Central Novel ou Free Web Novel.")
@@ -69,11 +73,18 @@ def montar_url_capitulo(url_base: str, capitulo: int) -> str:
     validar_url_fonte(url_base)
     cap_str = str(capitulo).replace(".5", "-") if ".5" in str(capitulo) else str(capitulo).replace(".0", "")
 
-    if not eh_freewebnovel(url_base):
-        return f"{url_base}{cap_str}"
-
     partes = urlsplit(url_base)
     caminho = partes.path.rstrip("/")
+    if not eh_freewebnovel(url_base):
+        tem_barra_final = partes.path.endswith("/")
+        if caminho.endswith("-"):
+            caminho = f"{caminho}{cap_str}"
+        else:
+            caminho = re.sub(r"-\d+$", f"-{cap_str}", caminho)
+        if tem_barra_final:
+            caminho = f"{caminho}/"
+        return urlunsplit((partes.scheme, partes.netloc, caminho, partes.query, partes.fragment))
+
     match = re.search(r"/chapter-(?:\d+(?:\.\d+)?|-)?$", caminho, re.IGNORECASE)
     if not match:
         raise ValueError(

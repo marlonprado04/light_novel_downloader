@@ -25,8 +25,21 @@ class ChapterExtractionTests(unittest.TestCase):
         ]
         script = (web_dir / "script.js").read_text(encoding="utf-8")
 
-        self.assertEqual(actions, ["txt", "epub", "unificar"])
+        self.assertEqual(actions, ["epub", "txt", "unificar"])
+        epub_tab = document.select_one('.tab-button[data-value="epub"]')
+        self.assertEqual(epub_tab.get("aria-pressed"), "true")
+        self.assertIn("alterarModo('epub')", script)
         self.assertIn("Título do capítulo", script)
+        examples = document.select("#sourceHelp li")
+        self.assertEqual(len(examples), 2)
+        self.assertIn(
+            "https://centralnovel.com/shadow-slave-capitulo-1/",
+            examples[0].get_text(" ", strip=True),
+        )
+        self.assertIn(
+            "https://freewebnovel.com/novel/captured-by-the-cold-detective-bl/chapter-1",
+            examples[1].get_text(" ", strip=True),
+        )
 
     def test_builds_site_specific_chapter_urls(self):
         self.assertEqual(
@@ -34,6 +47,18 @@ class ChapterExtractionTests(unittest.TestCase):
                 "https://centralnovel.com/shadow-slave-capitulo-", 12
             ),
             "https://centralnovel.com/shadow-slave-capitulo-12",
+        )
+        self.assertEqual(
+            chapters.montar_url_capitulo(
+                "https://centralnovel.com/shadow-slave-capitulo-1/", 12
+            ),
+            "https://centralnovel.com/shadow-slave-capitulo-12/",
+        )
+        self.assertEqual(
+            chapters.montar_url_capitulo(
+                "https://centralnovel.com/shadow-slave-capitulo-1/?ref=test", 12
+            ),
+            "https://centralnovel.com/shadow-slave-capitulo-12/?ref=test",
         )
         self.assertEqual(
             chapters.montar_url_capitulo(
