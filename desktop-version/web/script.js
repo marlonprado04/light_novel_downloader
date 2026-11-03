@@ -1,6 +1,6 @@
 let configSettings = { maxConcurrent: 10, timeout: 20, minDelay: 2, maxDelay: 5 };
 let downloadState = { caminhoDestino: null, formato: null, total: 0, progresso: { atual: 0, total: 0 } };
-let modoAtual = 'txt';
+let modoAtual = 'epub';
 let processando = false;
 let errosCapitulos = new Map();
 let progressLogExpanded = localStorage.getItem('progressLogExpanded') !== 'false';
@@ -38,7 +38,7 @@ function atualizarFonte() {
 
     indicador.removeAttribute('data-source');
     if (!valor) {
-        indicador.textContent = 'A fonte será identificada quando você informar o link.';
+        indicador.textContent = 'A fonte será identificada automaticamente.';
         return;
     }
 
@@ -47,14 +47,14 @@ function atualizarFonte() {
         url = new URL(valor);
     } catch {
         indicador.dataset.source = 'unsupported';
-        indicador.textContent = 'Informe uma URL completa começando com https://.';
+        indicador.textContent = 'Informe um endereço completo começando com https://.';
         return;
     }
 
     const host = url.hostname.toLowerCase();
     if (!['http:', 'https:'].includes(url.protocol)) {
         indicador.dataset.source = 'unsupported';
-        indicador.textContent = 'Use um endereço HTTP ou HTTPS válido.';
+        indicador.textContent = 'O endereço informado não é válido.';
         return;
     }
 
@@ -66,34 +66,36 @@ function atualizarFonte() {
         ]);
         if (!partes) {
             indicador.dataset.source = 'unsupported';
-            indicador.textContent = 'Free Web Novel reconhecido, mas use o link de um capítulo: /novel/slug-real/chapter-1.';
+            indicador.textContent = 'Use o endereço completo de um capítulo do Free Web Novel.';
         } else if (slugsDeExemplo.has(partes[1].toLowerCase())) {
             indicador.dataset.source = 'unsupported';
-            indicador.textContent = "Este endereço usa 'nome-da-obra' como exemplo. Substitua pelo slug real da novel.";
+            indicador.textContent = 'Substitua o slug de exemplo pelo endereço real da obra.';
         } else {
             indicador.dataset.source = 'supported';
-            indicador.textContent = 'Free Web Novel reconhecido. O capítulo da URL serve como referência para o intervalo.';
+            indicador.textContent = 'Free Web Novel identificado.';
         }
         return;
     }
 
     if (host === 'centralnovel.com' || host === 'www.centralnovel.com') {
-        if (url.pathname.endsWith('-')) {
+        const path = url.pathname.replace(/\/+$/, '');
+        if ((path.length > 1 && path.endsWith('-')) || /.+-\d+$/.test(path)) {
             indicador.dataset.source = 'supported';
-            indicador.textContent = 'Central Novel reconhecido. O app limita a 3 downloads simultâneos e usa timeout mínimo de 60 segundos.';
+            indicador.textContent = 'Central Novel identificado.';
         } else {
             indicador.dataset.source = 'unsupported';
-            indicador.textContent = 'Central Novel reconhecido, mas a URL base deve terminar em hífen.';
+            indicador.textContent = 'Use a URL-base terminada em hífen ou o link de um capítulo.';
         }
         return;
     }
 
     indicador.dataset.source = 'unsupported';
-    indicador.textContent = 'Fonte não reconhecida. Por enquanto, use Central Novel ou Free Web Novel.';
+    indicador.textContent = 'Fonte não reconhecida. Use Central Novel ou Free Web Novel.';
 }
 
 function alterarModo(modoSelecionado) {
     modoAtual = modoSelecionado;
+    document.querySelector('.app-container').dataset.activeMode = modoSelecionado;
     const sectionDownloads = document.getElementById('sectionParametrosDownload');
     const sectionNomeArquivo = document.getElementById('sectionNomeArquivo');
     const nomeArquivoInput = document.getElementById('nomeArquivo');
@@ -132,17 +134,15 @@ function alterarModo(modoSelecionado) {
         destinationHelp.textContent = 'Os arquivos TXT serão gravados nesta pasta.';
     }
 
-    document.documentElement.style.setProperty(
-        '--input-focus',
-        modoSelecionado === 'epub' ? '#7040b8' :
-                modoSelecionado === 'unificar' ? 'var(--color-unify)' : 'var(--color-txt)'
-    );
     if (!processando) btnPrincipal.textContent = rotulosBotao[modoSelecionado];
 }
 
 function atualizarEstadoProcesso(ativo) {
     processando = ativo;
-    document.getElementById('btnPrincipal').disabled = ativo;
+    const btnPrincipal = document.getElementById('btnPrincipal');
+    btnPrincipal.disabled = ativo;
+    btnPrincipal.classList.toggle('is-loading', ativo);
+    btnPrincipal.setAttribute('aria-busy', String(ativo));
     document.getElementById('btnSelecionarPasta').disabled = ativo;
     document.querySelectorAll('.tab-button').forEach((botao) => {
         botao.disabled = ativo;
@@ -150,7 +150,7 @@ function atualizarEstadoProcesso(ativo) {
     document.querySelectorAll('#url, #capituloInicial, #capituloFinal, #nomeArquivo').forEach((campo) => {
         campo.disabled = ativo || (modoAtual === 'unificar' && campo.id !== 'nomeArquivo');
     });
-    document.getElementById('btnPrincipal').textContent = ativo ? 'Processando…' : rotulosBotao[modoAtual];
+    btnPrincipal.textContent = ativo ? 'Processando…' : rotulosBotao[modoAtual];
 }
 
 function exibirPainelProgresso() {
@@ -178,7 +178,7 @@ function construirGradeProgresso(inicio, fim) {
         titulo.textContent = 'Aguardando…';
         const status = document.createElement('td');
         status.id = `status-${numero}`;
-        status.className = 'chapter-status';
+        status.className = 'chapter-status status-queued';
         status.textContent = 'Na fila';
 
         linha.append(capitulo, titulo, status);
@@ -192,6 +192,20 @@ function construirGradeProgresso(inicio, fim) {
     tabela.append(cabecalho, corpo);
     const boxProgresso = document.getElementById('progresso');
     boxProgresso.replaceChildren(tabela);
+}
+
+function atualizarMetricas(atual, total) {
+    const falhas = errosCapitulos.size;
+    const processados = Math.min(total, Math.max(0, atual, falhas));
+    const sucessos = Math.max(0, processados - falhas);
+    document.getElementById('metricProcessed').textContent = String(processados);
+    document.getElementById('metricSucceeded').textContent = String(sucessos);
+    document.getElementById('metricFailed').textContent = String(falhas);
+}
+
+function definirStatusCapitulo(elemento, status, rotulo) {
+    elemento.className = `chapter-status status-${status}`;
+    elemento.textContent = rotulo;
 }
 
 document.getElementById('formDownload').addEventListener('submit', async (evento) => {
@@ -269,6 +283,7 @@ document.getElementById('formDownload').addEventListener('submit', async (evento
     document.querySelector('.progress-track').setAttribute('aria-valuenow', '0');
     document.getElementById('progressBar').style.width = '0%';
     document.getElementById('progressPercentage').textContent = '0%';
+    atualizarMetricas(0, downloadState.total);
     document.getElementById('statsSummary').textContent = `Preparando ${downloadState.total} capítulo(s)…`;
     document.getElementById('progressTitle').textContent = `Preparando capítulos ${inicio}–${fim}`;
     construirGradeProgresso(inicio, fim);
@@ -299,12 +314,14 @@ document.getElementById('formDownload').addEventListener('submit', async (evento
 });
 
 function atualizarResumoProgresso(atual, total) {
+    atual = Math.min(total, Math.max(downloadState.progresso.atual, atual));
     downloadState.progresso.atual = atual;
     downloadState.progresso.total = total;
-    const porcentagem = total > 0 ? Math.round((atual / total) * 100) : 0;
+    const porcentagem = total > 0 ? Math.min(100, Math.round((atual / total) * 100)) : 0;
     const falhas = errosCapitulos.size;
     const sucessos = Math.max(0, atual - falhas);
 
+    atualizarMetricas(atual, total);
     document.querySelector('.progress-track').setAttribute('aria-valuenow', String(porcentagem));
     document.getElementById('progressBar').style.width = `${porcentagem}%`;
     document.getElementById('progressPercentage').textContent = `${porcentagem}%`;
@@ -325,14 +342,12 @@ function receberProgresso(tituloCapitulo, atual, total, numero_cap) {
     if (cellTitulo && cellStatus) {
         if (erro) {
             cellTitulo.textContent = `Falha: ${erro}`;
-            cellTitulo.style.color = 'var(--color-danger)';
-            cellStatus.textContent = 'Falha';
-            cellStatus.style.color = 'var(--color-danger)';
+            cellTitulo.classList.add('chapter-error');
+            definirStatusCapitulo(cellStatus, 'failed', 'Falha');
         } else {
             cellTitulo.textContent = tituloCapitulo;
-            cellTitulo.style.color = 'var(--text-main)';
-            cellStatus.textContent = 'Concluído';
-            cellStatus.style.color = 'var(--color-unify)';
+            cellTitulo.classList.remove('chapter-error');
+            definirStatusCapitulo(cellStatus, 'completed', 'Concluído');
         }
     }
     atualizarResumoProgresso(atual, total);
@@ -382,11 +397,11 @@ function registrarErro(numero_cap, mensagem) {
     const cellStatus = document.getElementById(`status-${numero}`);
     const cellTitulo = document.getElementById(`title-${numero}`);
     if (cellStatus && cellTitulo) {
-        cellStatus.textContent = 'Falha';
-        cellStatus.style.color = 'var(--color-danger)';
+        definirStatusCapitulo(cellStatus, 'failed', 'Falha');
         cellTitulo.textContent = `Falha: ${mensagem}`;
-        cellTitulo.style.color = 'var(--color-danger)';
+        cellTitulo.classList.add('chapter-error');
     }
+    atualizarMetricas(downloadState.progresso.atual, downloadState.progresso.total);
 }
 
 function toggleProgressLog() {
@@ -436,7 +451,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('timeout').addEventListener('change', saveDevSettings);
     document.getElementById('minDelay').addEventListener('change', saveDevSettings);
     document.getElementById('maxDelay').addEventListener('change', saveDevSettings);
-    alterarModo('txt');
+    alterarModo('epub');
 
     try {
         const defaults = await eel.obter_config_padrao()();
@@ -463,8 +478,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const pasta = await eel.selecionar_pasta()();
             if (pasta) {
-                document.getElementById('caminhoDestino').value = pasta;
-                document.getElementById('caminhoDestino').title = pasta;
+                const campoPasta = document.getElementById('caminhoDestino');
+                campoPasta.value = pasta;
+                campoPasta.title = pasta;
+                document.getElementById('folderPickerCard').dataset.selected = 'true';
                 downloadState.caminhoDestino = pasta;
             }
         } catch (erro) {

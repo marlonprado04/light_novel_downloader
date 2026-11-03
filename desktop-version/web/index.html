@@ -3,47 +3,112 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#f4f7fb" />
+    <meta name="theme-color" content="#f4f6fb" />
     <title>Light Novel Downloader</title>
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
-    <main class="app-container">
+    <main class="app-container" data-active-mode="epub">
       <header class="app-header">
-        <div class="brand-mark" aria-hidden="true">LN</div>
-        <div class="header-copy">
-          <p class="eyebrow">LIGHT NOVEL DOWNLOADER</p>
-          <h1>Baixe e organize sua leitura</h1>
-          <p class="app-subtitle">Escolha uma fonte, defina o intervalo e salve os capítulos no seu computador.</p>
-        </div>
+        <p class="eyebrow">LIGHT NOVEL DOWNLOADER</p>
+        <h1>Baixe e organize seus capítulos</h1>
+        <p class="app-subtitle">Salve sua leitura em arquivos TXT ou em um livro EPUB.</p>
       </header>
 
-      <div class="action-tabs" role="group" aria-label="Ação">
-        <button type="button" class="tab-button active" data-value="txt" aria-pressed="true">
-          <span class="tab-icon" aria-hidden="true">TXT</span>
-          <span class="tab-copy"><strong>Arquivos TXT</strong><small>Um arquivo por capítulo</small></span>
+      <div class="action-tabs" role="group" aria-label="Formato de saída">
+        <button type="button" class="tab-button active" data-value="epub" aria-pressed="true">
+          <span class="tab-title">
+            <span class="tab-icon" aria-hidden="true">📚</span>
+            <strong>Livro EPUB</strong>
+            <span class="tab-recommendation">Recomendado</span>
+          </span>
+          <span>Um único arquivo para leitura</span>
         </button>
-        <button type="button" class="tab-button" data-value="epub" aria-pressed="false">
-          <span class="tab-icon" aria-hidden="true">EPUB</span>
-          <span class="tab-copy"><strong>Livro EPUB</strong><small>Leitura em e-readers</small></span>
+        <button type="button" class="tab-button" data-value="txt" aria-pressed="false">
+          <span class="tab-title">
+            <span class="tab-icon" aria-hidden="true">📄</span>
+            <strong>Arquivos TXT</strong>
+          </span>
+          <span>Um arquivo por capítulo</span>
         </button>
         <button type="button" class="tab-button" data-value="unificar" aria-pressed="false">
-          <span class="tab-icon" aria-hidden="true">TXT+</span>
-          <span class="tab-copy"><strong>Unificar pasta</strong><small>Mesclar arquivos TXT</small></span>
+          <span class="tab-title">
+            <span class="tab-icon" aria-hidden="true">🔗</span>
+            <strong>Unificar TXT</strong>
+          </span>
+          <span>Juntar arquivos existentes</span>
         </button>
       </div>
 
       <form id="formDownload" class="main-form" novalidate>
-        <section class="form-section destination-section" aria-labelledby="destinationHeading">
+        <section id="sectionParametrosDownload" class="form-section form-card source-card" aria-labelledby="downloadHeading">
           <div class="section-heading">
-            <span class="step-number" aria-hidden="true">1</span>
             <div>
-              <h2 id="destinationHeading">Pasta de destino</h2>
-              <p>Escolha onde salvar os arquivos ou de onde ler os TXT existentes.</p>
+              <span class="section-kicker">ETAPA 1</span>
+              <h2 id="downloadHeading">Fonte e capítulos</h2>
+              <p>Informe o endereço da obra e os capítulos que deseja baixar.</p>
+            </div>
+            <div class="supported-sites" aria-label="Sites suportados">
+              <span>Central Novel</span>
+              <span>Free Web Novel</span>
             </div>
           </div>
-          <div class="folder-picker-group">
-            <div class="folder-path-wrap">
+
+          <div class="field-wrapper">
+            <label class="field-label" for="url">Endereço da obra</label>
+            <div class="source-input-wrap">
+              <input
+                type="url"
+                id="url"
+                name="url"
+                autocomplete="url"
+                spellcheck="false"
+                placeholder="Cole aqui a URL de um capítulo"
+                aria-describedby="sourceStatus"
+                required
+              />
+              <p id="sourceStatus" class="source-status" role="status" aria-live="polite">A fonte será identificada automaticamente.</p>
+            </div>
+            <details class="source-examples">
+              <summary>Ver exemplos de URL</summary>
+              <ul id="sourceHelp">
+                <li>
+                  <strong>Central Novel</strong>
+                  <code>https://centralnovel.com/shadow-slave-capitulo-1/</code>
+                  <span>Também aceita a URL-base terminada em hífen.</span>
+                </li>
+                <li>
+                  <strong>Free Web Novel</strong>
+                  <code>https://freewebnovel.com/novel/captured-by-the-cold-detective-bl/chapter-1</code>
+                </li>
+              </ul>
+            </details>
+          </div>
+
+          <div class="grid-2-col">
+            <div class="field-wrapper">
+              <label class="field-label" for="capituloInicial">Do capítulo</label>
+              <input type="number" id="capituloInicial" name="capituloInicial" min="1" step="1" inputmode="numeric" placeholder="1" required />
+            </div>
+            <div class="field-wrapper">
+              <label class="field-label" for="capituloFinal">Até o capítulo</label>
+              <input type="number" id="capituloFinal" name="capituloFinal" min="1" step="1" inputmode="numeric" placeholder="20" required />
+            </div>
+          </div>
+        </section>
+
+        <section class="form-section form-card destination-section" aria-labelledby="destinationHeading">
+          <div class="section-heading">
+            <div>
+              <span class="section-kicker">ETAPA 2</span>
+              <h2 id="destinationHeading">Destino e formato</h2>
+              <p id="destinationHelp">Escolha onde salvar os arquivos.</p>
+            </div>
+          </div>
+          <div id="folderPickerCard" class="folder-picker-group" data-selected="false">
+            <span class="folder-indicator" aria-hidden="true"></span>
+            <div class="folder-path">
+              <span class="folder-label">Pasta de destino</span>
               <label class="sr-only" for="caminhoDestino">Pasta selecionada</label>
               <input
                 type="text"
@@ -54,76 +119,29 @@
                 placeholder="Nenhuma pasta selecionada"
               />
             </div>
-            <button type="button" id="btnSelecionarPasta" class="btn-secondary">Selecionar pasta</button>
-          </div>
-          <small id="destinationHelp" class="field-help">Os arquivos TXT serão gravados nesta pasta.</small>
-        </section>
-
-        <section id="sectionParametrosDownload" class="form-section" aria-labelledby="downloadHeading">
-          <div class="section-heading">
-            <span class="step-number" aria-hidden="true">2</span>
-            <div>
-              <h2 id="downloadHeading">Fonte e capítulos</h2>
-              <p>Detectamos o site pelo endereço informado.</p>
-            </div>
+            <button type="button" id="btnSelecionarPasta" class="btn-secondary">Escolher pasta</button>
           </div>
 
-          <div class="field-wrapper">
-            <label class="field-label" for="url">Link da obra ou URL base</label>
-            <input
-              type="url"
-              id="url"
-              name="url"
-              autocomplete="url"
-              spellcheck="false"
-              placeholder="https://..."
-              aria-describedby="sourceHelp sourceStatus"
-              required
-            />
-            <p id="sourceStatus" class="source-status" role="status" aria-live="polite">A fonte será identificada quando você informar o link.</p>
-            <details class="source-help">
-              <summary>Qual link devo usar?</summary>
-              <ul id="sourceHelp">
-                <li><strong>Central Novel:</strong> URL base terminada em hífen, por exemplo <code>https://centralnovel.com/sua-obra-capitulo-</code>.</li>
-                <li><strong>Free Web Novel:</strong> link real de um capítulo, por exemplo <code>https://freewebnovel.com/novel/captured-by-the-cold-detective-bl/chapter-1</code>. Não use <code>nome-da-obra</code> como slug.</li>
-              </ul>
-            </details>
-          </div>
-
-          <div class="grid-2-col">
-            <div class="field-wrapper">
-              <label class="field-label" for="capituloInicial">Capítulo inicial</label>
-              <input type="number" id="capituloInicial" name="capituloInicial" min="1" step="1" inputmode="numeric" placeholder="Ex.: 1" required />
+          <div id="sectionNomeArquivo" class="filename-section" aria-labelledby="filenameHeading" hidden>
+            <div class="section-heading">
+              <div>
+                <h3 id="filenameHeading">Nome do arquivo</h3>
+                <p id="filenameHelp">Escolha um nome fácil de reconhecer.</p>
+              </div>
             </div>
             <div class="field-wrapper">
-              <label class="field-label" for="capituloFinal">Capítulo final</label>
-              <input type="number" id="capituloFinal" name="capituloFinal" min="1" step="1" inputmode="numeric" placeholder="Ex.: 20" required />
+              <label class="field-label" id="labelNomeArquivo" for="nomeArquivo">Nome do livro EPUB</label>
+              <input
+                type="text"
+                id="nomeArquivo"
+                name="nomeArquivo"
+                placeholder="Ex.: minha_novel"
+                aria-describedby="filenameHelp"
+              />
             </div>
           </div>
-          <p class="field-help range-help">O capítulo final deve ser igual ou maior que o inicial.</p>
+          <button type="submit" id="btnPrincipal" class="btn-primary" aria-busy="false">Baixar livro EPUB</button>
         </section>
-
-        <section id="sectionNomeArquivo" class="form-section filename-section" aria-labelledby="filenameHeading" hidden>
-          <div class="section-heading">
-            <span class="step-number" aria-hidden="true">3</span>
-            <div>
-              <h2 id="filenameHeading">Nome do arquivo</h2>
-              <p id="filenameHelp">Informe um nome fácil de reconhecer para o livro.</p>
-            </div>
-          </div>
-          <div class="field-wrapper">
-            <label class="field-label" id="labelNomeArquivo" for="nomeArquivo">Nome do livro EPUB</label>
-            <input
-              type="text"
-              id="nomeArquivo"
-              name="nomeArquivo"
-              placeholder="Ex.: minha_novel_volume_01"
-              aria-describedby="filenameHelp"
-            />
-          </div>
-        </section>
-
-        <button type="submit" id="btnPrincipal" class="btn-primary">Baixar arquivos TXT</button>
       </form>
 
       <div id="unifierStatus" class="status-panel" role="status" aria-live="polite"></div>
@@ -132,11 +150,28 @@
       <section id="stats" class="progress-card" aria-labelledby="progressTitle" style="display: none;">
         <button type="button" id="progressToggleButton" class="progress-card-header" aria-controls="progressLogContainer" aria-expanded="true">
           <span class="progress-meta">
-            <span id="progressToggle" class="toggle-arrow" aria-hidden="true">▼</span>
-            <span id="progressTitle" class="progress-title">Progresso do processo</span>
+            <span id="progressToggle" class="toggle-arrow" aria-hidden="true"></span>
+            <span class="progress-heading">
+              <span class="section-kicker">ATIVIDADE</span>
+              <span id="progressTitle" class="progress-title">Progresso do processo</span>
+            </span>
           </span>
           <span id="progressPercentage" class="progress-badge">0%</span>
         </button>
+        <div class="metric-grid" aria-label="Resumo do progresso">
+          <div class="metric-card">
+            <span class="metric-label">Processados</span>
+            <strong id="metricProcessed" class="metric-value">0</strong>
+          </div>
+          <div class="metric-card metric-success">
+            <span class="metric-label">Concluídos</span>
+            <strong id="metricSucceeded" class="metric-value">0</strong>
+          </div>
+          <div class="metric-card metric-failure">
+            <span class="metric-label">Falhas</span>
+            <strong id="metricFailed" class="metric-value">0</strong>
+          </div>
+        </div>
         <div class="progress-track" role="progressbar" aria-label="Progresso do download" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
           <div id="progressBar" class="progress-fill"></div>
         </div>
