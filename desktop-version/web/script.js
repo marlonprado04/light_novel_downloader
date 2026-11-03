@@ -1,295 +1,474 @@
-let configSettings = { maxConcurrent: null, timeout: null, minDelay: null, maxDelay: null };
+let configSettings = { maxConcurrent: 10, timeout: 20, minDelay: 2, maxDelay: 5 };
 let downloadState = { caminhoDestino: null, formato: null, total: 0, progresso: { atual: 0, total: 0 } };
+let modoAtual = 'txt';
+let processando = false;
+let errosCapitulos = new Map();
 let progressLogExpanded = localStorage.getItem('progressLogExpanded') !== 'false';
 
-// Função mestre que reestrutura a UI nativamente dependendo da ação escolhida
-function alterarModo(modoSelecionado) {
-    // 1. Atualiza as abas visuais
-    document.querySelectorAll('.tab-button').forEach(btn => {
-        if(btn.getAttribute('data-value') === modoSelecionado) {
-            btn.classList.add('active');
-        } else {
-            btn.classList.remove('active');
-        }
-    });
+const rotulosBotao = {
+    txt: 'Baixar arquivos TXT',
+    epub: 'Baixar livro EPUB',
+    unificar: 'Unificar arquivos TXT'
+};
 
-    // 2. Sincroniza o input radio oculto
-    if (modoSelecionado === 'txt') document.getElementById('radioTxt').checked = true;
-    if (modoSelecionado === 'zip') document.getElementById('radioZip').checked = true;
-    if (modoSelecionado === 'unificar') document.getElementById('radioUnificar').checked = true;
+function mostrarMensagem(elemento, tipo, titulo, detalhe = '') {
+    elemento.replaceChildren();
+    elemento.className = 'status-panel';
+    if (!titulo) return;
 
-    // 3. Gerencia referências de elementos DOM
-    const sectionDownloads = document.getElementById('sectionParametrosDownload');
-    const sectionNomeArquivo = document.getElementById('sectionNomeArquivo');
-    const labelNomeArquivo = document.getElementById('labelNomeArquivo');
-    const nomeArquivoInput = document.getElementById('nomeArquivo');
-    const btnPrincipal = document.getElementById('btnPrincipal');
-    const statusPainel = document.getElementById('unifierStatus');
-    const rootStyles = document.documentElement;
+    const mensagem = document.createElement('div');
+    mensagem.className = `status-message status-${tipo}`;
+    const cabecalho = document.createElement('strong');
+    cabecalho.textContent = titulo;
+    mensagem.append(cabecalho);
 
-    // NOVO: Captura os campos de download para controlar a validação HTML5
-    const camposDownload = document.querySelectorAll('#url, #capituloInicial, #capituloFinal');
-
-    statusPainel.innerHTML = ''; // Limpa mensagens residuais
-    document.getElementById('stats').style.display = 'none'; // Esconde painel de progresso antigo
-
-    // 4. Adaptação Dinâmica de Estrutura, Cores e Labels
-    if (modoSelecionado === 'txt') {
-        sectionDownloads.style.display = 'flex';
-        sectionNomeArquivo.style.display = 'none';
-        nomeArquivoInput.required = false;
-
-        // Reativa os campos de download
-        camposDownload.forEach(campo => {
-            campo.required = true;
-            campo.disabled = false;
-        });
-
-        btnPrincipal.textContent = 'Baixar Capítulos Individuais';
-        rootStyles.style.setProperty('--input-focus', 'var(--color-txt)');
-        btnPrincipal.style.backgroundColor = 'var(--color-txt)';
-    } 
-    else if (modoSelecionado === 'zip') {
-        sectionDownloads.style.display = 'flex';
-        sectionNomeArquivo.style.display = 'block';
-        labelNomeArquivo.textContent = 'Nome do Arquivo ZIP';
-        nomeArquivoInput.placeholder = 'Ex: shadow_slave_volume_1';
-        nomeArquivoInput.required = true;
-
-        // Reativa os campos de download
-        camposDownload.forEach(campo => {
-            campo.required = true;
-            campo.disabled = false;
-        });
-
-        btnPrincipal.textContent = 'Baixar e Compactar em ZIP';
-        rootStyles.style.setProperty('--input-focus', 'var(--color-zip)');
-        btnPrincipal.style.backgroundColor = 'var(--color-zip)';
-    } 
-    else if (modoSelecionado === 'unificar') {
-        sectionDownloads.style.display = 'none';
-        sectionNomeArquivo.style.display = 'block';
-        labelNomeArquivo.textContent = 'Nome do Arquivo Unificado (.txt)';
-        nomeArquivoInput.placeholder = 'Ex: volume_1_completo';
-        nomeArquivoInput.required = true;
-
-        // SOLUÇÃO: Desobriga e desabilita os campos ocultos para não travar o Submit do formulário
-        camposDownload.forEach(campo => {
-            campo.required = false;
-            campo.disabled = true;
-        });
-
-        btnPrincipal.textContent = 'Unificar Arquivos da Pasta';
-        rootStyles.style.setProperty('--input-focus', 'var(--color-unify)');
-        btnPrincipal.style.backgroundColor = 'var(--color-unify)';
+    if (detalhe) {
+        const descricao = document.createElement('small');
+        descricao.textContent = detalhe;
+        mensagem.append(descricao);
     }
+
+    elemento.append(mensagem);
 }
 
-// Interceptador unificado e desacoplado do submit
-document.getElementById('formDownload').addEventListener('submit', async (e) => {
-    e.preventDefault();
+function atualizarFonte() {
+    const campoUrl = document.getElementById('url');
+    const indicador = document.getElementById('sourceStatus');
+    const valor = campoUrl.value.trim();
 
-    const pastaBase = document.getElementById('caminhoDestino').value;
-    if (!pastaBase) {
-        alert('Por favor, selecione uma pasta de destino antes de iniciar.');
+    indicador.removeAttribute('data-source');
+    if (!valor) {
+        indicador.textContent = 'A fonte será identificada quando você informar o link.';
         return;
     }
 
-    const formato = document.querySelector('input[name="formato"]:checked').value;
-    const nomeArquivo = document.getElementById('nomeArquivo').value.trim();
-    const statusPainel = document.getElementById('unifierStatus');
-    const linkDownload = document.getElementById('linkDownload');
+    let url;
+    try {
+        url = new URL(valor);
+    } catch {
+        indicador.dataset.source = 'unsupported';
+        indicador.textContent = 'Informe uma URL completa começando com https://.';
+        return;
+    }
 
-    // 1. Limpeza imediata de status de texto anteriores
-    statusPainel.innerHTML = '';
-    statusPainel.className = 'status-panel';
-    linkDownload.innerHTML = '';
+    const host = url.hostname.toLowerCase();
+    if (!['http:', 'https:'].includes(url.protocol)) {
+        indicador.dataset.source = 'unsupported';
+        indicador.textContent = 'Use um endereço HTTP ou HTTPS válido.';
+        return;
+    }
 
-    // FLUXO ISOLADO 3: UNIFICAR PASTA LOCAL
-    if (formato === 'unificar') {
-        statusPainel.className = 'status-panel';
-        statusPainel.innerHTML = '<div class="text-center">⏳ Processando mesclagem dos arquivos locais...</div>';
-        
-        try {
-            const resposta = await eel.unificar_txt_arquivos(pastaBase, nomeArquivo)(); 
-            if (resposta.ok) {
-                statusPainel.className = 'status-panel unifier-success';
-                statusPainel.innerHTML = `<strong>✓ Fusão realizada!</strong><br><small>${resposta.caminho}</small>`;
-            } else {
-                statusPainel.className = 'status-panel unifier-error';
-                statusPainel.innerHTML = `<strong>✗ Falha:</strong> ${resposta.msg}`;
-            }
-        } catch (error) {
-            statusPainel.className = 'status-panel unifier-error';
-            statusPainel.innerHTML = `<strong>✗ Erro de Processo:</strong> ${error}`;
+    if (host === 'freewebnovel.com' || host === 'www.freewebnovel.com') {
+        const partes = url.pathname.match(/^\/novel\/([^/]+)\/chapter-[^/]+\/?$/i);
+        const slugsDeExemplo = new Set([
+            'nome-da-obra', 'name-of-the-novel', 'novel-name',
+            'your-novel', 'slug-da-obra', 'example'
+        ]);
+        if (!partes) {
+            indicador.dataset.source = 'unsupported';
+            indicador.textContent = 'Free Web Novel reconhecido, mas use o link de um capítulo: /novel/slug-real/chapter-1.';
+        } else if (slugsDeExemplo.has(partes[1].toLowerCase())) {
+            indicador.dataset.source = 'unsupported';
+            indicador.textContent = "Este endereço usa 'nome-da-obra' como exemplo. Substitua pelo slug real da novel.";
+        } else {
+            indicador.dataset.source = 'supported';
+            indicador.textContent = 'Free Web Novel reconhecido. O capítulo da URL serve como referência para o intervalo.';
         }
         return;
     }
 
-    // FLUXOS ISOLADOS 1 E 2: DOWNLOADS (TXT INDIVIDUAL / ZIP PACOTE)
-    const url = document.getElementById('url').value;
-    const inicio = parseInt(document.getElementById('capituloInicial').value);
-    const fim = parseInt(document.getElementById('capituloFinal').value);
-
-    // ================================================================
-    // 🚀 SOLUÇÃO: CONFIGURA E EXIBE O PROGRESSO IMEDIATAMENTE (ANTES DO PYTHON)
-    // ================================================================
-    // Configura o estado inicial do novo lote
-    downloadState.caminhoDestino = pastaBase;
-    downloadState.formato = formato;
-    downloadState.total = fim - inicio + 1;
-    downloadState.progresso.total = fim - inicio + 1;
-    downloadState.progresso.atual = 0;
-
-    // Reseta visualmente a barra para 0% instantaneamente no clique
-    document.getElementById('progressBar').style.width = '0%';
-    document.getElementById('progressPercentage').textContent = '0%';
-    document.getElementById('statsSummary').innerHTML = `Preparando lote: <strong>0 de ${downloadState.total}</strong> arquivos (0%)`;
-    document.getElementById('progressTitle').textContent = `Iniciando Download (${inicio} ao ${fim})...`;
-
-    // Constrói a nova tabela limpa de capítulos e força a exibição do painel na tela
-    construirGradeProgresso(inicio, fim);
-    exibirPainelProgresso();
-    // ================================================================
-
-    linkDownload.innerHTML = '<strong>Aguardando inicialização do Python...</strong>';
-    saveDevSettings();
-
-    // Dispara a rotina externa. Mesmo que o Python demore a inicializar, a UI já está montada e limpa!
-    const resposta = await eel.iniciar_download_desktop(url, inicio, fim, formato, nomeArquivo, configSettings, pastaBase)();
-
-    if (resposta.ok) {
-        linkDownload.innerHTML = '<strong>Download ativo em segundo plano...</strong>';
-    } else {
-        linkDownload.innerHTML = `<span style="color:#991b1b; font-weight:600;">✗ Erro: ${resposta.msg || 'Falha na rotina externa.'}</span>`;
-        // Se falhar logo de início, oculta o painel para não confundir
-        document.getElementById('stats').style.display = 'none';
+    if (host === 'centralnovel.com' || host === 'www.centralnovel.com') {
+        if (url.pathname.endsWith('-')) {
+            indicador.dataset.source = 'supported';
+            indicador.textContent = 'Central Novel reconhecido. O app limita a 3 downloads simultâneos e usa timeout mínimo de 60 segundos.';
+        } else {
+            indicador.dataset.source = 'unsupported';
+            indicador.textContent = 'Central Novel reconhecido, mas a URL base deve terminar em hífen.';
+        }
+        return;
     }
-});
+
+    indicador.dataset.source = 'unsupported';
+    indicador.textContent = 'Fonte não reconhecida. Por enquanto, use Central Novel ou Free Web Novel.';
+}
+
+function alterarModo(modoSelecionado) {
+    modoAtual = modoSelecionado;
+    const sectionDownloads = document.getElementById('sectionParametrosDownload');
+    const sectionNomeArquivo = document.getElementById('sectionNomeArquivo');
+    const nomeArquivoInput = document.getElementById('nomeArquivo');
+    const labelNomeArquivo = document.getElementById('labelNomeArquivo');
+    const filenameHelp = document.getElementById('filenameHelp');
+    const btnPrincipal = document.getElementById('btnPrincipal');
+    const destinationHelp = document.getElementById('destinationHelp');
+    const camposDownload = document.querySelectorAll('#url, #capituloInicial, #capituloFinal');
+
+    document.querySelectorAll('.tab-button').forEach((botao) => {
+        const ativo = botao.dataset.value === modoSelecionado;
+        botao.classList.toggle('active', ativo);
+        botao.setAttribute('aria-pressed', String(ativo));
+    });
+
+    const precisaNome = modoSelecionado !== 'txt';
+    sectionDownloads.hidden = modoSelecionado === 'unificar';
+    sectionNomeArquivo.hidden = !precisaNome;
+    nomeArquivoInput.required = precisaNome;
+    camposDownload.forEach((campo) => {
+        campo.required = modoSelecionado !== 'unificar';
+        campo.disabled = modoSelecionado === 'unificar';
+    });
+
+    if (modoSelecionado === 'epub') {
+        labelNomeArquivo.textContent = 'Nome do livro EPUB';
+        nomeArquivoInput.placeholder = 'Ex.: captured_by_the_cold_detective';
+        filenameHelp.textContent = 'Será criado um único livro EPUB com sumário e um capítulo por seção.';
+        destinationHelp.textContent = 'O livro EPUB será gravado nesta pasta.';
+    } else if (modoSelecionado === 'unificar') {
+        labelNomeArquivo.textContent = 'Nome do arquivo TXT unificado';
+        nomeArquivoInput.placeholder = 'Ex.: minha_novel_completa';
+        filenameHelp.textContent = 'Os arquivos TXT da pasta serão combinados nesta ordem por nome.';
+        destinationHelp.textContent = 'Selecione a pasta que contém os arquivos TXT que deseja mesclar.';
+    } else {
+        destinationHelp.textContent = 'Os arquivos TXT serão gravados nesta pasta.';
+    }
+
+    document.documentElement.style.setProperty(
+        '--input-focus',
+        modoSelecionado === 'epub' ? '#7040b8' :
+                modoSelecionado === 'unificar' ? 'var(--color-unify)' : 'var(--color-txt)'
+    );
+    if (!processando) btnPrincipal.textContent = rotulosBotao[modoSelecionado];
+}
+
+function atualizarEstadoProcesso(ativo) {
+    processando = ativo;
+    document.getElementById('btnPrincipal').disabled = ativo;
+    document.getElementById('btnSelecionarPasta').disabled = ativo;
+    document.querySelectorAll('.tab-button').forEach((botao) => {
+        botao.disabled = ativo;
+    });
+    document.querySelectorAll('#url, #capituloInicial, #capituloFinal, #nomeArquivo').forEach((campo) => {
+        campo.disabled = ativo || (modoAtual === 'unificar' && campo.id !== 'nomeArquivo');
+    });
+    document.getElementById('btnPrincipal').textContent = ativo ? 'Processando…' : rotulosBotao[modoAtual];
+}
 
 function exibirPainelProgresso() {
     document.getElementById('stats').style.display = 'block';
     const container = document.getElementById('progressLogContainer');
     const toggle = document.getElementById('progressToggle');
-    
-    if (progressLogExpanded) {
-        container.classList.remove('collapsed');
-        toggle.classList.remove('collapsed');
-    } else {
-        container.classList.add('collapsed');
-        toggle.classList.add('collapsed');
-    }
+    const botao = document.getElementById('progressToggleButton');
+
+    container.classList.toggle('collapsed', !progressLogExpanded);
+    toggle.classList.toggle('collapsed', !progressLogExpanded);
+    botao.setAttribute('aria-expanded', String(progressLogExpanded));
 }
 
 function construirGradeProgresso(inicio, fim) {
-    const boxProgresso = document.getElementById('progresso');
-    let html = '<table class="log-table"><thead><tr><th>Capítulo</th><th>Nome na Fonte</th><th style="text-align:right;">Status</th></tr></thead><tbody>';
-    
+    const corpo = document.createElement('tbody');
     for (let i = inicio; i <= fim; i++) {
-        const num = String(i).padStart(5, '0');
-        html += `<tr id="row-${num}"><td>Cap. ${num}</td><td id="title-${num}" style="color:var(--text-muted); font-style:italic;">Aguardando...</td><td id="status-${num}" style="text-align:right;">⏳</td></tr>`;
+        const numero = String(i).padStart(5, '0');
+        const linha = document.createElement('tr');
+        linha.id = `row-${numero}`;
+
+        const capitulo = document.createElement('td');
+        capitulo.textContent = `Cap. ${numero}`;
+        const titulo = document.createElement('td');
+        titulo.id = `title-${numero}`;
+        titulo.textContent = 'Aguardando…';
+        const status = document.createElement('td');
+        status.id = `status-${numero}`;
+        status.className = 'chapter-status';
+        status.textContent = 'Na fila';
+
+        linha.append(capitulo, titulo, status);
+        corpo.append(linha);
     }
-    html += '</tbody></table>';
-    boxProgresso.innerHTML = html;
+
+    const tabela = document.createElement('table');
+    tabela.className = 'log-table';
+    const cabecalho = document.createElement('thead');
+    cabecalho.innerHTML = '<tr><th scope="col">Capítulo</th><th scope="col">Título do capítulo</th><th scope="col">Status</th></tr>';
+    tabela.append(cabecalho, corpo);
+    const boxProgresso = document.getElementById('progresso');
+    boxProgresso.replaceChildren(tabela);
+}
+
+document.getElementById('formDownload').addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+    if (processando) return;
+
+    const pastaBase = document.getElementById('caminhoDestino').value;
+    const statusPainel = document.getElementById('unifierStatus');
+    const linkDownload = document.getElementById('linkDownload');
+    const nomeArquivo = document.getElementById('nomeArquivo').value.trim();
+    const formato = modoAtual;
+
+    mostrarMensagem(statusPainel, '', '');
+    mostrarMensagem(linkDownload, '', '');
+
+    if (!pastaBase) {
+        mostrarMensagem(statusPainel, 'error', 'Selecione uma pasta de destino.', 'Use o botão “Selecionar pasta” para escolher um diretório.');
+        document.getElementById('btnSelecionarPasta').focus();
+        return;
+    }
+
+    if (formato === 'unificar') {
+        if (!nomeArquivo) {
+            mostrarMensagem(statusPainel, 'error', 'Informe o nome do arquivo final.');
+            document.getElementById('nomeArquivo').focus();
+            return;
+        }
+        atualizarEstadoProcesso(true);
+        mostrarMensagem(statusPainel, 'info', 'Unificando arquivos…', 'Aguarde enquanto os TXT da pasta são combinados.');
+        try {
+            const resposta = await eel.unificar_txt_arquivos(pastaBase, nomeArquivo)();
+            if (resposta.ok) {
+                mostrarMensagem(statusPainel, 'success', 'Arquivos unificados.', resposta.caminho);
+            } else {
+                mostrarMensagem(statusPainel, 'error', 'Não foi possível unificar os arquivos.', resposta.msg);
+            }
+        } catch (erro) {
+            mostrarMensagem(statusPainel, 'error', 'Erro ao unificar os arquivos.', String(erro));
+        } finally {
+            atualizarEstadoProcesso(false);
+        }
+        return;
+    }
+
+    const formulario = document.getElementById('formDownload');
+    const campoUrl = document.getElementById('url');
+    const campoInicio = document.getElementById('capituloInicial');
+    const campoFim = document.getElementById('capituloFinal');
+    const url = campoUrl.value.trim();
+    const inicio = Number(campoInicio.value);
+    const fim = Number(campoFim.value);
+
+    atualizarFonte();
+    if (document.getElementById('sourceStatus').dataset.source !== 'supported') {
+        mostrarMensagem(statusPainel, 'error', 'Confira o link da fonte.', document.getElementById('sourceStatus').textContent);
+        campoUrl.focus();
+        return;
+    }
+
+    if (Number.isInteger(inicio) && Number.isInteger(fim) && inicio > fim) {
+        mostrarMensagem(statusPainel, 'error', 'Intervalo de capítulos inválido.', 'O capítulo inicial deve ser menor ou igual ao capítulo final.');
+        campoInicio.focus();
+        return;
+    }
+
+    if (!formulario.reportValidity()) return;
+
+    downloadState.caminhoDestino = pastaBase;
+    downloadState.formato = formato;
+    downloadState.total = fim - inicio + 1;
+    downloadState.progresso.total = downloadState.total;
+    downloadState.progresso.atual = 0;
+    errosCapitulos = new Map();
+
+    document.querySelector('.progress-track').setAttribute('aria-valuenow', '0');
+    document.getElementById('progressBar').style.width = '0%';
+    document.getElementById('progressPercentage').textContent = '0%';
+    document.getElementById('statsSummary').textContent = `Preparando ${downloadState.total} capítulo(s)…`;
+    document.getElementById('progressTitle').textContent = `Preparando capítulos ${inicio}–${fim}`;
+    construirGradeProgresso(inicio, fim);
+    progressLogExpanded = true;
+    exibirPainelProgresso();
+
+    atualizarEstadoProcesso(true);
+    mostrarMensagem(linkDownload, 'info', 'Iniciando download…', 'A conexão pode levar alguns instantes; o progresso aparecerá abaixo.');
+
+    try {
+        saveDevSettings();
+        const resposta = await eel.iniciar_download_desktop(
+            url, inicio, fim, formato, nomeArquivo, configSettings, pastaBase
+        )();
+
+        if (!resposta.ok) {
+            atualizarEstadoProcesso(false);
+            document.getElementById('stats').style.display = 'none';
+            mostrarMensagem(linkDownload, 'error', 'Não foi possível iniciar o download.', resposta.msg || 'Verifique os dados e tente novamente.');
+        } else if (processando) {
+            mostrarMensagem(linkDownload, 'info', 'Download em andamento.', `Destino: ${resposta.caminho}`);
+        }
+    } catch (erro) {
+        atualizarEstadoProcesso(false);
+        document.getElementById('stats').style.display = 'none';
+        mostrarMensagem(linkDownload, 'error', 'Falha ao iniciar o download.', String(erro));
+    }
+});
+
+function atualizarResumoProgresso(atual, total) {
+    downloadState.progresso.atual = atual;
+    downloadState.progresso.total = total;
+    const porcentagem = total > 0 ? Math.round((atual / total) * 100) : 0;
+    const falhas = errosCapitulos.size;
+    const sucessos = Math.max(0, atual - falhas);
+
+    document.querySelector('.progress-track').setAttribute('aria-valuenow', String(porcentagem));
+    document.getElementById('progressBar').style.width = `${porcentagem}%`;
+    document.getElementById('progressPercentage').textContent = `${porcentagem}%`;
+    document.getElementById('statsSummary').textContent =
+        `${atual} de ${total} capítulo(s) processados · ${sucessos} concluído(s) · ${falhas} com falha`;
+    if (atual < total) {
+        document.getElementById('progressTitle').textContent = `Baixando capítulos (${atual}/${total})`;
+    }
 }
 
 eel.expose(receberProgresso);
-function receberProgresso(capitulo, nome, atual, total, numero_cap) {
-    const num = String(numero_cap).padStart(5, '0');
-    const cellTitulo = document.getElementById(`title-${num}`);
-    const cellStatus = document.getElementById(`status-${num}`);
-    
-    if (cellTitulo) {
-        cellTitulo.textContent = nome;
-        cellTitulo.style.color = 'var(--text-main)';
-        cellTitulo.style.fontStyle = 'normal';
-        cellStatus.textContent = '✓';
-        cellStatus.style.color = 'var(--color-unify)';
-    }
-    atualizarBarraProgresso(atual, total);
-}
+function receberProgresso(tituloCapitulo, atual, total, numero_cap) {
+    const numero = String(numero_cap).padStart(5, '0');
+    const cellTitulo = document.getElementById(`title-${numero}`);
+    const cellStatus = document.getElementById(`status-${numero}`);
+    const erro = errosCapitulos.get(String(numero_cap));
 
-function atualizarBarraProgresso(atual, total) {
-    downloadState.progresso.atual = atual;
-    downloadState.progresso.total = total;
-    const porcentagem = Math.round((atual / total) * 100);
-    
-    document.getElementById('progressBar').style.width = porcentagem + '%';
-    document.getElementById('progressPercentage').textContent = porcentagem + '%';
-    document.getElementById('statsSummary').innerHTML = `Processados: <strong>${atual} de ${total}</strong> arquivos (${porcentagem}%)`;
-    document.getElementById('progressTitle').textContent = `Baixando Capítulos (${atual}/${total})`;
+    if (cellTitulo && cellStatus) {
+        if (erro) {
+            cellTitulo.textContent = `Falha: ${erro}`;
+            cellTitulo.style.color = 'var(--color-danger)';
+            cellStatus.textContent = 'Falha';
+            cellStatus.style.color = 'var(--color-danger)';
+        } else {
+            cellTitulo.textContent = tituloCapitulo;
+            cellTitulo.style.color = 'var(--text-main)';
+            cellStatus.textContent = 'Concluído';
+            cellStatus.style.color = 'var(--color-unify)';
+        }
+    }
+    atualizarResumoProgresso(atual, total);
 }
 
 eel.expose(finalizarDownload);
-function finalizarDownload(sucesso, caminhoFinal) {
-    const linkDownload = document.getElementById('linkDownload');
-    linkDownload.innerHTML = sucesso 
-        ? `<div class="unifier-success" style="text-align:left;"><strong>✓ Processo concluído com sucesso!</strong><br><small>Destino: ${caminhoFinal}</small></div>`
-        : '<div class="unifier-error"><strong>✗ Erro crítico durante o fechamento do lote.</strong></div>';
+function finalizarDownload(sucesso, caminhoFinal, erroProcesso = '') {
+    atualizarEstadoProcesso(false);
+    const total = downloadState.progresso.total;
+    const atual = downloadState.progresso.atual;
+    const falhas = errosCapitulos.size;
+
+    if (erroProcesso) {
+        document.getElementById('progressTitle').textContent = 'Processo não concluído';
+        mostrarMensagem(
+            document.getElementById('linkDownload'),
+            'error',
+            'Não foi possível concluir o arquivo.',
+            `${erroProcesso} Destino: ${caminhoFinal}`
+        );
+        return;
+    }
+
+    if (sucesso && atual === total && falhas === 0) {
+        document.getElementById('progressTitle').textContent = 'Download concluído';
+        mostrarMensagem(document.getElementById('linkDownload'), 'success', 'Download concluído.', `Destino: ${caminhoFinal}`);
+        return;
+    }
+
+    document.getElementById('progressTitle').textContent = 'Download finalizado com problemas';
+    const detalhe = falhas > 0
+        ? `${falhas} capítulo(s) com falha. Confira os detalhes na lista. Destino: ${caminhoFinal}`
+        : `${atual} de ${total} capítulo(s) processados. Confira os arquivos e tente novamente. Destino: ${caminhoFinal}`;
+    mostrarMensagem(document.getElementById('linkDownload'), 'warning', 'O download não foi concluído por completo.', detalhe);
+}
+
+eel.expose(atualizarStatusDownload);
+function atualizarStatusDownload(mensagem) {
+    document.getElementById('progressTitle').textContent = mensagem;
+    mostrarMensagem(document.getElementById('linkDownload'), 'info', mensagem);
 }
 
 eel.expose(registrarErro);
 function registrarErro(numero_cap, mensagem) {
-    const num = String(numero_cap).padStart(5, '0');
-    const cellStatus = document.getElementById(`status-${num}`);
-    const cellTitulo = document.getElementById(`title-${num}`);
-    if (cellStatus) {
-        cellStatus.textContent = '✗';
-        cellStatus.style.color = 'var(--color-zip)';
-        if (cellTitulo) {
-            cellTitulo.textContent = `Falha: ${mensagem}`;
-            cellTitulo.style.color = '#b91c1c';
-        }
+    const numero = String(numero_cap).padStart(5, '0');
+    errosCapitulos.set(String(numero_cap), mensagem);
+    const cellStatus = document.getElementById(`status-${numero}`);
+    const cellTitulo = document.getElementById(`title-${numero}`);
+    if (cellStatus && cellTitulo) {
+        cellStatus.textContent = 'Falha';
+        cellStatus.style.color = 'var(--color-danger)';
+        cellTitulo.textContent = `Falha: ${mensagem}`;
+        cellTitulo.style.color = 'var(--color-danger)';
     }
 }
 
 function toggleProgressLog() {
+    progressLogExpanded = !progressLogExpanded;
     const container = document.getElementById('progressLogContainer');
     const toggle = document.getElementById('progressToggle');
-    if (container.classList.contains('collapsed')) {
-        container.classList.remove('collapsed');
-        toggle.classList.remove('collapsed');
-        progressLogExpanded = true;
-    } else {
-        container.classList.add('collapsed');
-        toggle.classList.add('collapsed');
-        progressLogExpanded = false;
-    }
-    localStorage.setItem('progressLogExpanded', progressLogExpanded);
+    container.classList.toggle('collapsed', !progressLogExpanded);
+    toggle.classList.toggle('collapsed', !progressLogExpanded);
+    document.getElementById('progressToggleButton').setAttribute('aria-expanded', String(progressLogExpanded));
+    localStorage.setItem('progressLogExpanded', String(progressLogExpanded));
+}
+
+function lerConfiguracao(chave, valorPadrao, minimo, maximo, inteiro = false) {
+    const valorSalvo = Number(localStorage.getItem(chave));
+    let valor = Number.isFinite(valorSalvo) && localStorage.getItem(chave) !== null ? valorSalvo : valorPadrao;
+    valor = Math.min(maximo, Math.max(minimo, valor));
+    return inteiro ? Math.round(valor) : valor;
 }
 
 function saveDevSettings() {
-    configSettings.maxConcurrent = document.getElementById('maxConcurrent').value;
-    configSettings.timeout = document.getElementById('timeout').value;
-    configSettings.minDelay = document.getElementById('minDelay').value;
-    configSettings.maxDelay = document.getElementById('maxDelay').value;
-    localStorage.setItem('maxConcurrent', configSettings.maxConcurrent);
-    localStorage.setItem('timeout', configSettings.timeout);
-    localStorage.setItem('minDelay', configSettings.minDelay);
-    localStorage.setItem('maxDelay', configSettings.maxDelay);
+    const minDelayInput = document.getElementById('minDelay');
+    const maxDelayInput = document.getElementById('maxDelay');
+    const minDelay = Math.min(10, Math.max(0, Number(minDelayInput.value) || 0));
+    const maxDelay = Math.min(10, Math.max(minDelay, Number(maxDelayInput.value) || 0));
+    maxDelayInput.value = String(maxDelay);
+
+    configSettings = {
+        maxConcurrent: Math.round(Math.min(50, Math.max(1, Number(document.getElementById('maxConcurrent').value) || 10))),
+        timeout: Math.round(Math.min(120, Math.max(5, Number(document.getElementById('timeout').value) || 20))),
+        minDelay,
+        maxDelay
+    };
+
+    Object.entries(configSettings).forEach(([chave, valor]) => {
+        localStorage.setItem(chave, String(valor));
+        document.getElementById(chave).value = String(valor);
+    });
 }
 
-document.addEventListener('DOMContentLoaded', async function() {
-    const defaults = await eel.obter_config_padrao()();
-    configSettings = {
-        maxConcurrent: localStorage.getItem('maxConcurrent') ?? defaults.maxConcurrent,
-        timeout: localStorage.getItem('timeout') ?? defaults.timeout,
-        minDelay: localStorage.getItem('minDelay') ?? defaults.minDelay,
-        maxDelay: localStorage.getItem('maxDelay') ?? defaults.maxDelay
-    };
-    document.getElementById('maxConcurrent').value = configSettings.maxConcurrent;
-    document.getElementById('timeout').value = configSettings.timeout;
-    document.getElementById('minDelay').value = configSettings.minDelay;
-    document.getElementById('maxDelay').value = configSettings.maxDelay;
+document.addEventListener('DOMContentLoaded', async () => {
+    document.querySelectorAll('.tab-button').forEach((botao) => {
+        botao.addEventListener('click', () => alterarModo(botao.dataset.value));
+    });
+    document.getElementById('url').addEventListener('input', atualizarFonte);
+    document.getElementById('progressToggleButton').addEventListener('click', toggleProgressLog);
+    document.getElementById('maxConcurrent').addEventListener('change', saveDevSettings);
+    document.getElementById('timeout').addEventListener('change', saveDevSettings);
+    document.getElementById('minDelay').addEventListener('change', saveDevSettings);
+    document.getElementById('maxDelay').addEventListener('change', saveDevSettings);
+    alterarModo('txt');
+
+    try {
+        const defaults = await eel.obter_config_padrao()();
+        configSettings = {
+            maxConcurrent: lerConfiguracao('maxConcurrent', defaults.maxConcurrent, 1, 50, true),
+            timeout: lerConfiguracao('timeout', defaults.timeout, 5, 120, true),
+            minDelay: lerConfiguracao('minDelay', defaults.minDelay, 0, 10),
+            maxDelay: lerConfiguracao('maxDelay', defaults.maxDelay, 0, 10)
+        };
+        if (configSettings.minDelay > configSettings.maxDelay) {
+            configSettings.maxDelay = configSettings.minDelay;
+        }
+        Object.entries(configSettings).forEach(([chave, valor]) => {
+            document.getElementById(chave).value = String(valor);
+        });
+        saveDevSettings();
+    } catch (erro) {
+        mostrarMensagem(document.getElementById('linkDownload'), 'error', 'Não foi possível carregar as configurações.', String(erro));
+        document.getElementById('btnPrincipal').disabled = true;
+        return;
+    }
 
     document.getElementById('btnSelecionarPasta').addEventListener('click', async () => {
-        const pasta = await eel.selecionar_pasta()();
-        if (pasta) {
-            document.getElementById('caminhoDestino').value = pasta;
-            downloadState.caminhoDestino = pasta;
+        try {
+            const pasta = await eel.selecionar_pasta()();
+            if (pasta) {
+                document.getElementById('caminhoDestino').value = pasta;
+                document.getElementById('caminhoDestino').title = pasta;
+                downloadState.caminhoDestino = pasta;
+            }
+        } catch (erro) {
+            mostrarMensagem(document.getElementById('unifierStatus'), 'error', 'Não foi possível selecionar a pasta.', String(erro));
         }
     });
-
-    // Inicializa no modo padrão (TXT)
-    alterarModo('txt');
 });

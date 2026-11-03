@@ -2,137 +2,175 @@
 <html lang="pt-br">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerenciador de Capítulos</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f4f7fb" />
+    <title>Light Novel Downloader</title>
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
-    <div class="app-container">
+    <main class="app-container">
       <header class="app-header">
-        <h1>Gerenciador de Capítulos</h1>
-        <p class="app-subtitle">Baixe ou unifique capítulos de web novels de forma automatizada</p>
+        <div class="brand-mark" aria-hidden="true">LN</div>
+        <div class="header-copy">
+          <p class="eyebrow">LIGHT NOVEL DOWNLOADER</p>
+          <h1>Baixe e organize sua leitura</h1>
+          <p class="app-subtitle">Escolha uma fonte, defina o intervalo e salve os capítulos no seu computador.</p>
+        </div>
       </header>
 
-      <div class="action-tabs">
-        <button type="button" class="tab-button active" data-value="txt" onclick="alterarModo('txt')">
-          <span class="tab-icon">📄</span> TXT Individual
+      <div class="action-tabs" role="group" aria-label="Ação">
+        <button type="button" class="tab-button active" data-value="txt" aria-pressed="true">
+          <span class="tab-icon" aria-hidden="true">TXT</span>
+          <span class="tab-copy"><strong>Arquivos TXT</strong><small>Um arquivo por capítulo</small></span>
         </button>
-        <button type="button" class="tab-button" data-value="zip" onclick="alterarModo('zip')">
-          <span class="tab-icon">📦</span> Pacote ZIP
+        <button type="button" class="tab-button" data-value="epub" aria-pressed="false">
+          <span class="tab-icon" aria-hidden="true">EPUB</span>
+          <span class="tab-copy"><strong>Livro EPUB</strong><small>Leitura em e-readers</small></span>
         </button>
-        <button type="button" class="tab-button" data-value="unificar" onclick="alterarModo('unificar')">
-          <span class="tab-icon">✨</span> Unificar Pasta
+        <button type="button" class="tab-button" data-value="unificar" aria-pressed="false">
+          <span class="tab-icon" aria-hidden="true">TXT+</span>
+          <span class="tab-copy"><strong>Unificar pasta</strong><small>Mesclar arquivos TXT</small></span>
         </button>
       </div>
 
-      <form id="formDownload" class="main-form">
-        <input type="radio" name="formato" id="radioTxt" value="txt" checked style="display:none;" />
-        <input type="radio" name="formato" id="radioZip" value="zip" style="display:none;" />
-        <input type="radio" name="formato" id="radioUnificar" value="unificar" style="display:none;" />
-
-        <div class="form-section">
-          <label class="field-label" for="caminhoDestino">📁 Pasta de Trabalho</label>
-          <div class="folder-picker-group">
-            <input
-              type="text"
-              id="caminhoDestino"
-              name="caminhoDestino"
-              readonly
-              placeholder="Clique em 'Selecionar' para definir o diretório..."
-              required
-            />
-            <button type="button" id="btnSelecionarPasta" class="btn-secondary">Selecionar</button>
+      <form id="formDownload" class="main-form" novalidate>
+        <section class="form-section destination-section" aria-labelledby="destinationHeading">
+          <div class="section-heading">
+            <span class="step-number" aria-hidden="true">1</span>
+            <div>
+              <h2 id="destinationHeading">Pasta de destino</h2>
+              <p>Escolha onde salvar os arquivos ou de onde ler os TXT existentes.</p>
+            </div>
           </div>
-        </div>
+          <div class="folder-picker-group">
+            <div class="folder-path-wrap">
+              <label class="sr-only" for="caminhoDestino">Pasta selecionada</label>
+              <input
+                type="text"
+                id="caminhoDestino"
+                name="caminhoDestino"
+                readonly
+                aria-describedby="destinationHelp"
+                placeholder="Nenhuma pasta selecionada"
+              />
+            </div>
+            <button type="button" id="btnSelecionarPasta" class="btn-secondary">Selecionar pasta</button>
+          </div>
+          <small id="destinationHelp" class="field-help">Os arquivos TXT serão gravados nesta pasta.</small>
+        </section>
 
-        <div id="sectionParametrosDownload" class="form-section">
+        <section id="sectionParametrosDownload" class="form-section" aria-labelledby="downloadHeading">
+          <div class="section-heading">
+            <span class="step-number" aria-hidden="true">2</span>
+            <div>
+              <h2 id="downloadHeading">Fonte e capítulos</h2>
+              <p>Detectamos o site pelo endereço informado.</p>
+            </div>
+          </div>
+
           <div class="field-wrapper">
-            <label class="field-label" for="url">Link Base da Fonte</label>
+            <label class="field-label" for="url">Link da obra ou URL base</label>
             <input
-              type="text"
+              type="url"
               id="url"
               name="url"
-              value="https://centralnovel.com/shadow-slave-capitulo-"
+              autocomplete="url"
+              spellcheck="false"
+              placeholder="https://..."
+              aria-describedby="sourceHelp sourceStatus"
               required
             />
+            <p id="sourceStatus" class="source-status" role="status" aria-live="polite">A fonte será identificada quando você informar o link.</p>
+            <details class="source-help">
+              <summary>Qual link devo usar?</summary>
+              <ul id="sourceHelp">
+                <li><strong>Central Novel:</strong> URL base terminada em hífen, por exemplo <code>https://centralnovel.com/sua-obra-capitulo-</code>.</li>
+                <li><strong>Free Web Novel:</strong> link real de um capítulo, por exemplo <code>https://freewebnovel.com/novel/captured-by-the-cold-detective-bl/chapter-1</code>. Não use <code>nome-da-obra</code> como slug.</li>
+              </ul>
+            </details>
           </div>
-          
+
           <div class="grid-2-col">
             <div class="field-wrapper">
-              <label class="field-label" for="capituloInicial">Capítulo Inicial</label>
-              <input type="number" id="capituloInicial" name="capituloInicial" min="1" required />
+              <label class="field-label" for="capituloInicial">Capítulo inicial</label>
+              <input type="number" id="capituloInicial" name="capituloInicial" min="1" step="1" inputmode="numeric" placeholder="Ex.: 1" required />
             </div>
             <div class="field-wrapper">
-              <label class="field-label" for="capituloFinal">Capítulo Final</label>
-              <input type="number" id="capituloFinal" name="capituloFinal" min="1" required />
+              <label class="field-label" for="capituloFinal">Capítulo final</label>
+              <input type="number" id="capituloFinal" name="capituloFinal" min="1" step="1" inputmode="numeric" placeholder="Ex.: 20" required />
             </div>
           </div>
-        </div>
+          <p class="field-help range-help">O capítulo final deve ser igual ou maior que o inicial.</p>
+        </section>
 
-        <div id="sectionNomeArquivo" class="form-section" style="display: none;">
+        <section id="sectionNomeArquivo" class="form-section filename-section" aria-labelledby="filenameHeading" hidden>
+          <div class="section-heading">
+            <span class="step-number" aria-hidden="true">3</span>
+            <div>
+              <h2 id="filenameHeading">Nome do arquivo</h2>
+              <p id="filenameHelp">Informe um nome fácil de reconhecer para o livro.</p>
+            </div>
+          </div>
           <div class="field-wrapper">
-            <label class="field-label" id="labelNomeArquivo" for="nomeArquivo">Nome do Arquivo Final</label>
+            <label class="field-label" id="labelNomeArquivo" for="nomeArquivo">Nome do livro EPUB</label>
             <input
               type="text"
               id="nomeArquivo"
               name="nomeArquivo"
-              placeholder="Ex: volume_01"
+              placeholder="Ex.: minha_novel_volume_01"
+              aria-describedby="filenameHelp"
             />
           </div>
-        </div>
+        </section>
 
-        <button type="submit" id="btnPrincipal" class="btn-primary">Baixar Capítulos</button>
+        <button type="submit" id="btnPrincipal" class="btn-primary">Baixar arquivos TXT</button>
       </form>
 
-      <div id="unifierStatus" class="status-panel"></div>
-      <div id="linkDownload" class="status-panel text-center"></div>
+      <div id="unifierStatus" class="status-panel" role="status" aria-live="polite"></div>
+      <div id="linkDownload" class="status-panel" role="status" aria-live="polite"></div>
 
-      <div id="stats" class="progress-card" style="display: none;">
-        <div class="progress-card-header" onclick="toggleProgressLog()">
-          <div class="progress-meta">
-            <span id="progressToggle" class="toggle-arrow">▼</span>
-            <span id="progressTitle" class="progress-title">Progresso do Processo</span>
-          </div>
+      <section id="stats" class="progress-card" aria-labelledby="progressTitle" style="display: none;">
+        <button type="button" id="progressToggleButton" class="progress-card-header" aria-controls="progressLogContainer" aria-expanded="true">
+          <span class="progress-meta">
+            <span id="progressToggle" class="toggle-arrow" aria-hidden="true">▼</span>
+            <span id="progressTitle" class="progress-title">Progresso do processo</span>
+          </span>
           <span id="progressPercentage" class="progress-badge">0%</span>
-        </div>
-        
-        <div class="progress-track">
+        </button>
+        <div class="progress-track" role="progressbar" aria-label="Progresso do download" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
           <div id="progressBar" class="progress-fill"></div>
         </div>
-        
-        <div id="statsSummary" class="progress-summary"></div>
-
-        <div id="progressLogContainer" class="progress-log-wrapper collapsed">
+        <p id="statsSummary" class="progress-summary" role="status" aria-live="polite"></p>
+        <div id="progressLogContainer" class="progress-log-wrapper">
           <div id="progresso" class="log-list"></div>
         </div>
-      </div>
+      </section>
 
       <footer class="app-footer">
-        <div class="dev-panel">
-          <details class="dev-details">
-            <summary class="dev-summary">⚙️ Ajustes de Rede Avançados</summary>
-            <div class="dev-grid">
-              <div class="field-wrapper">
-                <label class="dev-label" for="maxConcurrent">Concorrência máxima (Threads)</label>
-                <input type="number" id="maxConcurrent" min="1" max="50" onchange="saveDevSettings()" />
-              </div>
-              <div class="field-wrapper">
-                <label class="dev-label" for="timeout">Timeout da Requisição (s)</label>
-                <input type="number" id="timeout" min="5" max="120" onchange="saveDevSettings()" />
-              </div>
-              <div class="field-wrapper">
-                <label class="dev-label" for="minDelay">Espera Mínima (s)</label>
-                <input type="number" id="minDelay" min="0" max="10" step="0.5" onchange="saveDevSettings()" />
-              </div>
-              <div class="field-wrapper">
-                <label class="dev-label" for="maxDelay">Espera Máxima (s)</label>
-                <input type="number" id="maxDelay" min="0" max="10" step="0.5" onchange="saveDevSettings()" />
-              </div>
+        <details class="dev-details">
+          <summary class="dev-summary">Ajustes avançados de rede</summary>
+          <p class="field-help">Ajuste apenas se necessário. Mais conexões podem aumentar bloqueios no site.</p>
+          <div class="dev-grid">
+            <div class="field-wrapper">
+              <label class="dev-label" for="maxConcurrent">Downloads simultâneos</label>
+              <input type="number" id="maxConcurrent" min="1" max="50" step="1" />
             </div>
-          </details>
-        </div>
+            <div class="field-wrapper">
+              <label class="dev-label" for="timeout">Tempo limite (segundos)</label>
+              <input type="number" id="timeout" min="5" max="120" step="1" />
+            </div>
+            <div class="field-wrapper">
+              <label class="dev-label" for="minDelay">Espera mínima (segundos)</label>
+              <input type="number" id="minDelay" min="0" max="10" step="0.5" />
+            </div>
+            <div class="field-wrapper">
+              <label class="dev-label" for="maxDelay">Espera máxima (segundos)</label>
+              <input type="number" id="maxDelay" min="0" max="10" step="0.5" />
+            </div>
+          </div>
+        </details>
       </footer>
-    </div>
+    </main>
 
     <script type="text/javascript" src="/eel.js"></script>
     <script type="text/javascript" src="./script.js"></script>
