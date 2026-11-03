@@ -20,6 +20,9 @@ class ChapterExtractionTests(unittest.TestCase):
             (web_dir / "index.html").read_text(encoding="utf-8"),
             "html.parser",
         )
+        favicon = document.select_one('link[rel="icon"]')
+        self.assertIsNotNone(favicon)
+        self.assertTrue((web_dir / favicon["href"].replace("./", "", 1)).is_file())
         actions = [
             button.get("data-value")
             for button in document.select(".tab-button")
