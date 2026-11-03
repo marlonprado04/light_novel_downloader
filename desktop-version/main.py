@@ -97,7 +97,7 @@ def gerar_arquivo_epub(capitulos, caminho_saida, url_fonte):
     livro.toc = tuple(itens_capitulos)
     livro.add_item(epub.EpubNcx())
     livro.add_item(epub.EpubNav())
-    livro.spine = ["nav", *itens_capitulos]
+    livro.spine = itens_capitulos
 
     pasta_saida = os.path.dirname(caminho_saida)
     descriptor, caminho_temporario = tempfile.mkstemp(

@@ -5,6 +5,7 @@ import zipfile
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
+from xml.etree import ElementTree
 
 from bs4 import BeautifulSoup
 
@@ -188,6 +189,22 @@ class ChapterExtractionTests(unittest.TestCase):
                     if name.endswith("chapter_00001.xhtml")
                 )
                 chapter_html = epub_file.read(chapter_path).decode("utf-8")
+                container = ElementTree.fromstring(epub_file.read("META-INF/container.xml"))
+                package_path = container.find(
+                    ".//{urn:oasis:names:tc:opendocument:xmlns:container}rootfile"
+                ).attrib["full-path"]
+                package = ElementTree.fromstring(epub_file.read(package_path))
+
+        namespace = {"opf": "http://www.idpf.org/2007/opf"}
+        navigation_item = package.find(
+            './/opf:item[@properties="nav"]', namespace
+        )
+        self.assertIsNotNone(navigation_item)
+        spine_ids = {
+            item.get("idref")
+            for item in package.findall(".//opf:spine/opf:itemref", namespace)
+        }
+        self.assertNotIn(navigation_item.get("id"), spine_ids)
 
         chapter_text = BeautifulSoup(chapter_html, "html.parser").get_text(" ", strip=True)
         self.assertIn("Capítulo 1: O Pesadelo Começa", chapter_text)

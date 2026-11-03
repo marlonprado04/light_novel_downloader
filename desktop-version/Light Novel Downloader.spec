@@ -1,10 +1,14 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+from pathlib import Path
+
+spec_dir = Path(SPECPATH)
+
 a = Analysis(
-    ['main.py'],
-    pathex=[],
+    [str(spec_dir / 'main.py')],
+    pathex=[str(spec_dir)],
     binaries=[],
-    datas=[('web', 'web')],
+    datas=[(str(spec_dir / 'web'), 'web')],
     hiddenimports=['eel', 'cloudscraper', 'bs4', 'requests', 'lxml', 'ebooklib', 'ebooklib.epub'],
     hookspath=[],
     hooksconfig={},
@@ -23,8 +27,8 @@ exe = EXE(
     a.datas,
     [],
     name='Light Novel Downloader',
-    icon='icon.ico',
-    version='version_info.txt',
+    icon=str(spec_dir / 'icon.ico'),
+    version=str(spec_dir / 'version_info.txt'),
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
